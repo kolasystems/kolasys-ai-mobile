@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -14,7 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { trpc } from '../lib/trpc';
+import { useAuth } from '@clerk/clerk-expo';
 import type { Recording, Note, NoteSection, ActionItem, TranscriptSegment } from '../lib/trpc';
 import { StatusBadge } from '../components/StatusBadge';
 import { ActionItemRow } from '../components/ActionItemRow';
@@ -25,7 +25,51 @@ type RouteT = RouteProp<RecordingsStackParamList, 'RecordingDetail'>;
 type NavT = NativeStackNavigationProp<RecordingsStackParamList, 'RecordingDetail'>;
 type Tab = 'notes' | 'transcript' | 'actions';
 
+const API = 'https://app.kolasys.ai/api/trpc';
 const PROCESSING_STATUSES = ['PENDING', 'PROCESSING', 'TRANSCRIBING', 'SUMMARIZING'];
+
+// ─── Direct tRPC fetch helpers ─────────────────────────────────────────────────
+
+async function trpcGet<T>(procedure: string, input: Record<string, unknown>, token: string | null): Promise<T> {
+  const inputParam = encodeURIComponent(JSON.stringify({ '0': { json: input } }));
+  const url = `${API}/${procedure}?batch=1&input=${inputParam}`;
+  console.log(`[tRPC GET] ${url}`);
+
+  const res = await fetch(url, {
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+
+  const raw = await res.json();
+  console.log(`[tRPC GET] raw response for ${procedure}:`, JSON.stringify(raw, null, 2));
+
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+  // tRPC batch response shape: [{result:{data:{json:T}}}]
+  const item = Array.isArray(raw) ? raw[0] : raw;
+  if (item?.error) throw new Error(item.error.message ?? 'tRPC error');
+  return item?.result?.data?.json ?? item?.result?.data;
+}
+
+async function trpcPost(procedure: string, input: Record<string, unknown>, token: string | null): Promise<void> {
+  const url = `${API}/${procedure}?batch=1`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify([{ json: input }]),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`HTTP ${res.status}: ${text}`);
+  }
+}
+
+// ─── Formatters ───────────────────────────────────────────────────────────────
 
 function formatDuration(seconds: number | null): string {
   if (!seconds) return '--:--';
@@ -36,15 +80,15 @@ function formatDuration(seconds: number | null): string {
   return `${m}m ${s}s`;
 }
 
-function formatDate(date: Date): string {
+function formatDate(date: Date | string): string {
   return new Date(date).toLocaleDateString('en-US', {
     weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
   });
 }
 
-const PAGE_SIZE = 30;
-
 // ─── Notes tab ────────────────────────────────────────────────────────────────
+
+const PAGE_SIZE = 30;
 
 function BulletList({ items }: { items: string[] }) {
   if (!items?.length) return null;
@@ -60,7 +104,7 @@ function BulletList({ items }: { items: string[] }) {
   );
 }
 
-function NotesSection({ title, children }: { title: string; children: React.ReactNode }) {
+function NotesSectionBlock({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <View style={{ gap: 8 }}>
       <Text style={notesStyles.sectionHeading}>{title}</Text>
@@ -69,7 +113,7 @@ function NotesSection({ title, children }: { title: string; children: React.Reac
   );
 }
 
-function NotesTab({ note }: { note: Note | null }) {
+function NotesTab({ note }: { note: Note | null | undefined }) {
   if (!note) {
     return (
       <View style={[notesStyles.tabContent, { alignItems: 'center', paddingTop: 40, gap: 10 }]}>
@@ -98,44 +142,32 @@ function NotesTab({ note }: { note: Note | null }) {
 
   return (
     <View style={notesStyles.tabContent}>
-      {/* Summary */}
       {!!note.summary && (
         <View style={notesStyles.summaryCard}>
           <Text style={notesStyles.summaryLabel}>Summary</Text>
           <Text style={notesStyles.summaryText}>{note.summary}</Text>
         </View>
       )}
-
-      {/* Key Points */}
       {hasKeyPoints && (
-        <NotesSection title="Key Points">
+        <NotesSectionBlock title="Key Points">
           <BulletList items={note.keyPoints!} />
-        </NotesSection>
+        </NotesSectionBlock>
       )}
-
-      {/* Decisions */}
       {hasDecisions && (
-        <NotesSection title="Decisions">
+        <NotesSectionBlock title="Decisions">
           <BulletList items={note.decisions!} />
-        </NotesSection>
+        </NotesSectionBlock>
       )}
-
-      {/* Next Steps */}
       {hasNextSteps && (
-        <NotesSection title="Next Steps">
+        <NotesSectionBlock title="Next Steps">
           <BulletList items={note.nextSteps!} />
-        </NotesSection>
+        </NotesSectionBlock>
       )}
-
-      {/* Custom sections — handle both `heading` and `title` field names */}
-      {hasSections && note.sections.map((section: NoteSection) => {
-        const sectionTitle = section.heading ?? section.title ?? '';
-        return (
-          <NotesSection key={section.id} title={sectionTitle}>
-            <Text style={notesStyles.sectionContent}>{section.content}</Text>
-          </NotesSection>
-        );
-      })}
+      {hasSections && note.sections.map((section: NoteSection) => (
+        <NotesSectionBlock key={section.id} title={section.heading ?? section.title ?? ''}>
+          <Text style={notesStyles.sectionContent}>{section.content}</Text>
+        </NotesSectionBlock>
+      ))}
     </View>
   );
 }
@@ -162,56 +194,80 @@ const notesStyles = StyleSheet.create({
   sectionContent: { fontSize: 14, lineHeight: 21, color: '#6b7280' },
 });
 
+// ─── Main screen ──────────────────────────────────────────────────────────────
+
 export default function RecordingDetailScreen() {
   const route = useRoute<RouteT>();
   const navigation = useNavigation<NavT>();
+  const { getToken } = useAuth();
   const { id } = route.params;
 
+  const [recording, setRecording] = useState<Recording | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>('notes');
   const [transcriptPage, setTranscriptPage] = useState(0);
 
+  const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const isProcessing = (status: string) => PROCESSING_STATUSES.includes(status);
 
-  const { data: recording, isLoading, refetch, isRefetching } = trpc.recordings.get.useQuery(
-    { id },
-    {
-      refetchInterval: (query: unknown) => {
-        const data = (query as any)?.state?.data as Recording | null | undefined;
-        return data && isProcessing(data.status) ? 5000 : false;
-      },
-    },
-  );
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setIsLoading(true);
+    setError(null);
+    try {
+      const token = await getToken();
+      const data = await trpcGet<Recording>('recordings.get', { id }, token);
+      setRecording(data);
 
-  // Debug: log full API response to help diagnose missing note fields
-  console.log('[RecordingDetail] recording:', JSON.stringify(recording, null, 2));
+      // Auto-poll while processing
+      if (data && isProcessing(data.status)) {
+        pollRef.current = setTimeout(() => void load(true), 5000);
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to load recording';
+      setError(msg);
+      console.error('[RecordingDetail] load error:', err);
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  }, [id, getToken]);
 
-  const updateActionItem = trpc.recordings.updateActionItem.useMutation({
-    onSuccess: () => { void refetch(); },
-  });
+  useEffect(() => {
+    void load();
+    return () => {
+      if (pollRef.current) clearTimeout(pollRef.current);
+    };
+  }, [load]);
 
-  const handleToggleAction = useCallback(
-    (actionId: string, completed: boolean) => {
-      updateActionItem.mutate({ id: actionId, status: completed ? 'COMPLETED' : 'OPEN' });
-    },
-    [updateActionItem],
-  );
+  const handleRefresh = () => {
+    if (pollRef.current) clearTimeout(pollRef.current);
+    setIsRefreshing(true);
+    void load(true);
+  };
+
+  const handleToggleAction = useCallback(async (actionId: string, completed: boolean) => {
+    try {
+      const token = await getToken();
+      await trpcPost('recordings.updateActionItem', { id: actionId, status: completed ? 'COMPLETED' : 'OPEN' }, token);
+      void load(true);
+    } catch (err) {
+      Alert.alert('Error', 'Could not update action item.');
+      console.error(err);
+    }
+  }, [getToken, load]);
 
   const handleShare = useCallback(async () => {
     if (!recording?.note) return;
     const note = recording.note;
     const lines: string[] = [`# ${recording.title}`, formatDate(recording.createdAt), '', '## Summary', note.summary, ''];
-    if (note.keyPoints?.length) {
-      lines.push('## Key Points', ...note.keyPoints.map((p) => `- ${p}`), '');
-    }
-    if (note.decisions?.length) {
-      lines.push('## Decisions', ...note.decisions.map((d) => `- ${d}`), '');
-    }
-    if (note.nextSteps?.length) {
-      lines.push('## Next Steps', ...note.nextSteps.map((s) => `- ${s}`), '');
-    }
+    if (note.keyPoints?.length) lines.push('## Key Points', ...note.keyPoints.map(p => `- ${p}`), '');
+    if (note.decisions?.length) lines.push('## Decisions', ...note.decisions.map(d => `- ${d}`), '');
+    if (note.nextSteps?.length) lines.push('## Next Steps', ...note.nextSteps.map(s => `- ${s}`), '');
     note.sections?.forEach((s: NoteSection) => {
-      const heading = s.heading ?? s.title ?? '';
-      lines.push(`## ${heading}`, s.content, '');
+      lines.push(`## ${s.heading ?? s.title ?? ''}`, s.content, '');
     });
     if (note.actionItems?.length) {
       lines.push('## Action Items');
@@ -222,6 +278,8 @@ export default function RecordingDetailScreen() {
     await Share.share({ message: lines.join('\n'), title: recording.title });
   }, [recording]);
 
+  // ── Render states ─────────────────────────────────────────────────────────
+
   if (isLoading) {
     return (
       <View style={styles.centered}>
@@ -230,11 +288,14 @@ export default function RecordingDetailScreen() {
     );
   }
 
-  if (!recording) {
+  if (error || !recording) {
     return (
       <View style={styles.centered}>
         <Ionicons name="alert-circle-outline" size={40} color="#6b7280" />
-        <Text style={styles.errorText}>Recording not found</Text>
+        <Text style={styles.errorText}>{error ?? 'Recording not found'}</Text>
+        <TouchableOpacity onPress={() => void load()} style={styles.retryBtn}>
+          <Text style={styles.retryText}>Retry</Text>
+        </TouchableOpacity>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backLink}>
           <Text style={styles.backLinkText}>Go back</Text>
         </TouchableOpacity>
@@ -246,7 +307,7 @@ export default function RecordingDetailScreen() {
   const pagedSegments = segments.slice(transcriptPage * PAGE_SIZE, (transcriptPage + 1) * PAGE_SIZE);
   const totalPages = Math.ceil(segments.length / PAGE_SIZE);
 
-  const speakerIds = [...new Set(segments.map((s) => s.speaker).filter(Boolean))] as string[];
+  const speakerIds = [...new Set(segments.map(s => s.speaker).filter(Boolean))] as string[];
   const speakerIndexMap: Record<string, number> = {};
   speakerIds.forEach((sid, i) => { speakerIndexMap[sid] = i; });
 
@@ -268,10 +329,10 @@ export default function RecordingDetailScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={isRefetching} onRefresh={() => void refetch()} tintColor="#5B8DEF" />
+          <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor="#5B8DEF" />
         }
       >
-        {/* Title block */}
+        {/* Title */}
         <View style={styles.titleBlock}>
           <Text style={styles.title}>{recording.title}</Text>
           <View style={styles.metaRow}>
@@ -305,7 +366,9 @@ export default function RecordingDetailScreen() {
         {recording.status === 'FAILED' && (
           <View style={[styles.banner, { backgroundColor: '#FEE2E215', borderColor: '#EF444440' }]}>
             <Ionicons name="alert-circle" size={20} color="#EF4444" />
-            <Text style={[styles.bannerTitle, { color: '#EF4444' }]}>Processing failed. Please try uploading again.</Text>
+            <Text style={[styles.bannerTitle, { color: '#EF4444' }]}>
+              Processing failed. Please try uploading again.
+            </Text>
           </View>
         )}
 
@@ -329,9 +392,7 @@ export default function RecordingDetailScreen() {
               ))}
             </View>
 
-            {activeTab === 'notes' && (
-              <NotesTab note={recording.note ?? null} />
-            )}
+            {activeTab === 'notes' && <NotesTab note={recording.note} />}
 
             {activeTab === 'transcript' && (
               <View style={styles.tabContent}>
@@ -390,10 +451,12 @@ export default function RecordingDetailScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#ffffff' },
-  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
-  errorText: { fontSize: 16, color: '#6b7280' },
-  backLink: { marginTop: 8 },
-  backLinkText: { fontSize: 15, color: '#5B8DEF', fontWeight: '600' },
+  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, padding: 24 },
+  errorText: { fontSize: 16, color: '#6b7280', textAlign: 'center' },
+  retryBtn: { paddingVertical: 8, paddingHorizontal: 20, backgroundColor: '#5B8DEF', borderRadius: 10 },
+  retryText: { color: '#ffffff', fontWeight: '600', fontSize: 14 },
+  backLink: { marginTop: 4 },
+  backLinkText: { fontSize: 14, color: '#6b7280' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
