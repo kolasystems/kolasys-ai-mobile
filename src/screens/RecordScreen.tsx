@@ -11,11 +11,16 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Linking,
 } from 'react-native';
 import { Audio } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@clerk/clerk-expo';
+import Constants from 'expo-constants';
+
+// True on a physical device, false on simulator/emulator
+const IS_REAL_DEVICE = Constants.isDevice;
 
 type RecordState = 'idle' | 'recording' | 'paused' | 'stopped' | 'uploading' | 'done';
 
@@ -41,6 +46,7 @@ export default function RecordScreen() {
   const [title, setTitle] = useState('');
   const [recordingUri, setRecordingUri] = useState<string | null>(null);
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
+  const [permissionDenied, setPermissionDenied] = useState(false);
 
   const recordingRef = useRef<Audio.Recording | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -51,8 +57,11 @@ export default function RecordScreen() {
   // ── Permission ───────────────────────────────────────────────────────────────
 
   useEffect(() => {
-    Audio.requestPermissionsAsync().then(({ status }) => {
-      setHasPermission(status === 'granted');
+    // Check current status without prompting — we'll prompt on first tap
+    Audio.getPermissionsAsync().then(({ status }) => {
+      if (status === 'granted') setHasPermission(true);
+      if (status === 'denied') { setHasPermission(false); setPermissionDenied(true); }
+      // 'undetermined' → leave null, prompt when user taps record
     });
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
@@ -106,10 +115,32 @@ export default function RecordScreen() {
   // ── Recording controls ───────────────────────────────────────────────────────
 
   const handleStart = async () => {
-    if (!hasPermission) {
-      Alert.alert('Permission required', 'Microphone access is needed to record.');
+    // Simulator check — must happen before permission request
+    if (!IS_REAL_DEVICE) {
+      Alert.alert(
+        'Real Device Required',
+        'Recording requires a real device. The simulator does not have a microphone.',
+      );
       return;
     }
+
+    // Request permission if not yet determined
+    if (hasPermission === null) {
+      const { status } = await Audio.requestPermissionsAsync();
+      if (status === 'granted') {
+        setHasPermission(true);
+      } else {
+        setHasPermission(false);
+        setPermissionDenied(true);
+        return;
+      }
+    }
+
+    if (!hasPermission) {
+      setPermissionDenied(true);
+      return;
+    }
+
     try {
       await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
       const rec = new Audio.Recording();
@@ -120,9 +151,27 @@ export default function RecordScreen() {
       setState('recording');
       startTimer();
       startWaveform();
-    } catch (err) {
-      Alert.alert('Error', 'Could not start recording. Please try again.');
-      console.error(err);
+    } catch (err: unknown) {
+      console.error('[RecordScreen] start error:', err);
+      const msg = err instanceof Error ? err.message.toLowerCase() : '';
+
+      if (msg.includes('recorder') || msg.includes('prepare') || msg.includes('avaudiosession')) {
+        // Likely a simulator or hardware issue
+        Alert.alert(
+          'Microphone Unavailable',
+          IS_REAL_DEVICE
+            ? 'Microphone access required. Please allow microphone access in Settings > Privacy & Security > Microphone > Kolasys AI.'
+            : 'Recording requires a real device. The simulator does not have a microphone.',
+          IS_REAL_DEVICE
+            ? [
+                { text: 'Open Settings', onPress: () => void Linking.openSettings() },
+                { text: 'Cancel', style: 'cancel' },
+              ]
+            : [{ text: 'OK' }],
+        );
+      } else {
+        Alert.alert('Recording Error', 'Could not start recording. Please try again.');
+      }
     }
   };
 
@@ -220,12 +269,27 @@ export default function RecordScreen() {
 
   // ── Render ───────────────────────────────────────────────────────────────────
 
-  if (hasPermission === false) {
+  if (permissionDenied) {
     return (
       <View style={styles.centered}>
-        <Ionicons name="mic-off-outline" size={48} color="#9ca3af" />
-        <Text style={styles.permTitle}>Microphone Access Denied</Text>
-        <Text style={styles.permSub}>Enable microphone access in Settings to record audio.</Text>
+        <Ionicons name="mic-off-outline" size={48} color="#EF4444" />
+        <Text style={styles.permTitle}>Microphone Access Required</Text>
+        {IS_REAL_DEVICE ? (
+          <>
+            <Text style={styles.permSub}>
+              Please allow microphone access in:{'\n'}
+              Settings {'>'} Privacy {'>'} Microphone {'>'} Kolasys AI
+            </Text>
+            <TouchableOpacity style={styles.permBtn} onPress={() => void Linking.openSettings()}>
+              <Ionicons name="settings-outline" size={16} color="#ffffff" />
+              <Text style={styles.permBtnText}>Open Settings</Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          <Text style={styles.permSub}>
+            Recording requires a real device.{'\n'}The simulator does not have a microphone.
+          </Text>
+        )}
       </View>
     );
   }
@@ -350,9 +414,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
     gap: 28,
   },
-  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, padding: 32 },
+  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14, padding: 32 },
   permTitle: { fontSize: 18, fontWeight: '700', color: '#111827', textAlign: 'center' },
-  permSub: { fontSize: 14, color: '#6b7280', textAlign: 'center', lineHeight: 20 },
+  permSub: { fontSize: 14, color: '#6b7280', textAlign: 'center', lineHeight: 22 },
+  permBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#5B8DEF',
+    paddingHorizontal: 20,
+    paddingVertical: 11,
+    borderRadius: 12,
+    gap: 8,
+    marginTop: 4,
+  },
+  permBtnText: { color: '#ffffff', fontWeight: '700', fontSize: 14 },
   timer: {
     fontSize: 56,
     fontWeight: '200',
