@@ -1,9 +1,15 @@
+import { enableScreens } from 'react-native-screens';
+enableScreens();
+
 import React from 'react';
 import { View, ActivityIndicator } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { ClerkProvider, useAuth } from '@clerk/clerk-expo';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Constants from 'expo-constants';
 
 import { tokenCache } from './src/lib/auth';
+import { TRPCProvider } from './src/lib/trpc';
 import AppNavigator from './src/navigation/AppNavigator';
 import SignInScreen from './src/screens/SignInScreen';
 
@@ -14,7 +20,11 @@ const CLERK_PUBLISHABLE_KEY =
 function RootNavigator() {
   const { isSignedIn, isLoaded } = useAuth();
   if (!isLoaded) {
-    return <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator /></View>;
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator size="large" color="#5B8DEF" />
+      </View>
+    );
   }
   if (!isSignedIn) {
     return <SignInScreen />;
@@ -22,10 +32,21 @@ function RootNavigator() {
   return <AppNavigator />;
 }
 
+function AuthenticatedApp() {
+  return (
+    <TRPCProvider>
+      <RootNavigator />
+      <StatusBar style="dark" />
+    </TRPCProvider>
+  );
+}
+
 export default function App() {
   return (
-    <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY} tokenCache={tokenCache}>
-      <RootNavigator />
-    </ClerkProvider>
+    <SafeAreaProvider>
+      <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY} tokenCache={tokenCache}>
+        <AuthenticatedApp />
+      </ClerkProvider>
+    </SafeAreaProvider>
   );
 }
