@@ -5,21 +5,16 @@ import React from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { ClerkProvider, useAuth } from '@clerk/clerk-expo';
-import { NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Constants from 'expo-constants';
 
 import { tokenCache } from './src/lib/auth';
-import { TRPCProvider } from './src/lib/trpc';
 import AppNavigator from './src/navigation/AppNavigator';
 import SignInScreen from './src/screens/SignInScreen';
-import { Colors } from './src/lib/theme';
 
 const CLERK_PUBLISHABLE_KEY =
   (Constants.expoConfig?.extra?.clerkPublishableKey as string | undefined) ??
   'pk_test_cG9zc2libGUtdHJvbGwtMTUuY2xlcmsuYWNjb3VudHMuZGV2JA';
-
-// ─── Auth gate ────────────────────────────────────────────────────────────────
 
 function RootNavigator() {
   const { isSignedIn, isLoaded } = useAuth();
@@ -27,7 +22,7 @@ function RootNavigator() {
   if (!isLoaded) {
     return (
       <View style={styles.loading}>
-        <ActivityIndicator size="large" color={Colors.primary} />
+        <ActivityIndicator size="large" color="#5B8DEF" />
       </View>
     );
   }
@@ -39,44 +34,12 @@ function RootNavigator() {
   return <AppNavigator />;
 }
 
-// ─── Navigation theme ─────────────────────────────────────────────────────────
-
-const NAV_THEME = {
-  dark: false,
-  colors: {
-    primary: Colors.primary,
-    background: '#ffffff',
-    card: '#ffffff',
-    text: '#111827',
-    border: '#e5e7eb',
-    notification: Colors.primary,
-  },
-  fonts: {
-    regular: { fontFamily: 'System', fontWeight: '400' as const },
-    medium: { fontFamily: 'System', fontWeight: '500' as const },
-    bold: { fontFamily: 'System', fontWeight: '700' as const },
-    heavy: { fontFamily: 'System', fontWeight: '900' as const },
-  },
-};
-
-function ThemedApp() {
-  return (
-    <NavigationContainer theme={NAV_THEME}>
-      <TRPCProvider>
-        <RootNavigator />
-        <StatusBar style="dark" />
-      </TRPCProvider>
-    </NavigationContainer>
-  );
-}
-
-// ─── Root ─────────────────────────────────────────────────────────────────────
-
 export default function App() {
   return (
     <SafeAreaProvider>
       <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY} tokenCache={tokenCache}>
-        <ThemedApp />
+        <RootNavigator />
+        <StatusBar style="dark" />
       </ClerkProvider>
     </SafeAreaProvider>
   );
