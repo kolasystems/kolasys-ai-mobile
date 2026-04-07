@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, useColorScheme } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
@@ -12,7 +12,7 @@ import RecordingDetailScreen from '../screens/RecordingDetailScreen';
 import CalendarScreen from '../screens/CalendarScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 
-import { getThemeColors, Colors } from '../lib/theme';
+import { getThemeColors, Colors, useColorScheme } from '../lib/theme';
 
 // ─── Param Lists ──────────────────────────────────────────────────────────────
 
@@ -34,7 +34,7 @@ export type RecordingsStackParamList = {
 const RecordingsStack = createNativeStackNavigator<RecordingsStackParamList>();
 
 function RecordingsNavigator() {
-  const isDark = useColorScheme() === 'dark';
+  const isDark = useColorScheme();
   const theme = getThemeColors(isDark);
 
   return (
@@ -65,7 +65,7 @@ function RecordingsNavigator() {
 const Tab = createBottomTabNavigator<TabParamList>();
 
 export default function AppNavigator() {
-  const isDark = useColorScheme() === 'dark';
+  const isDark = useColorScheme();
   const theme = getThemeColors(isDark);
   const insets = useSafeAreaInsets();
   const bottomPad = insets.bottom > 0 ? insets.bottom : 10;
