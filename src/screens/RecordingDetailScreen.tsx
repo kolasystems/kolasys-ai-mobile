@@ -232,11 +232,9 @@ export default function RecordingDetailScreen() {
 
     try {
       const token = await getTokenRef.current();
-      console.log('[RecordingDetail] fetching id:', id, '| token present:', !!token);
 
       const inputParam = encodeURIComponent(JSON.stringify({ '0': { json: { id } } }));
       const url = `${API}/recordings.get?batch=1&input=${inputParam}`;
-      console.log('[RecordingDetail] GET', url);
 
       const res = await fetch(url, {
         signal: controller.signal,
@@ -247,7 +245,6 @@ export default function RecordingDetailScreen() {
       });
 
       const raw = await res.json();
-      console.log('FULL API RESPONSE:', JSON.stringify(raw, null, 2));
 
       if (!res.ok) {
         throw new Error(`HTTP ${res.status}: ${JSON.stringify(raw)}`);
@@ -257,12 +254,6 @@ export default function RecordingDetailScreen() {
       if (item?.error) {
         throw new Error(item.error.message ?? `tRPC error: ${JSON.stringify(item.error)}`);
       }
-
-      // Log every level of nesting so we can see exactly where note lives
-      console.log('item:', JSON.stringify(item, null, 2));
-      console.log('item.result:', JSON.stringify(item?.result, null, 2));
-      console.log('item.result.data:', JSON.stringify(item?.result?.data, null, 2));
-      console.log('item.result.data.json:', JSON.stringify(item?.result?.data?.json, null, 2));
 
       const rawData = item?.result?.data?.json ?? item?.result?.data;
       if (!rawData) {
@@ -276,8 +267,6 @@ export default function RecordingDetailScreen() {
         note: rawData.note ?? rawData.notes?.[0] ?? null,
       };
 
-      console.log('NOTE DATA:', JSON.stringify(data.note, null, 2));
-      console.log('[RecordingDetail] note present:', !!data.note, '| status:', data.status);
       setRecording(data);
 
       if (isProcessing(data.status)) {
