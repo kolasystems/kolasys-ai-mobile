@@ -12,7 +12,7 @@ import {
   Alert,
   ScrollView,
 } from 'react-native';
-import { useSignIn, useOAuth } from '@clerk/clerk-expo';
+import { useSignIn, useSSO } from '@clerk/clerk-expo';
 import * as WebBrowser from 'expo-web-browser';
 import { Ionicons } from '@expo/vector-icons';
 import { getThemeColors, Colors } from '../lib/theme';
@@ -24,7 +24,7 @@ export default function SignInScreen() {
   const theme = getThemeColors(isDark);
 
   const { signIn, setActive, isLoaded } = useSignIn();
-  const { startOAuthFlow } = useOAuth({ strategy: 'oauth_google' });
+  const { startSSOFlow } = useSSO();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -35,9 +35,12 @@ export default function SignInScreen() {
   const handleGoogleSignIn = async () => {
     setGoogleLoading(true);
     try {
-      const { createdSessionId, setActive: setActiveOAuth } = await startOAuthFlow();
-      if (createdSessionId) {
-        await setActiveOAuth!({ session: createdSessionId });
+      const { createdSessionId, setActive: setActiveSSO } = await startSSOFlow({
+        strategy: 'oauth_google',
+        redirectUrl: 'kolasys-ai://oauth-callback',
+      });
+      if (createdSessionId && setActiveSSO) {
+        await setActiveSSO({ session: createdSessionId });
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Google sign-in failed.';
@@ -48,12 +51,12 @@ export default function SignInScreen() {
   };
 
   const handleEmailSignIn = async () => {
-    if (!isLoaded || !email || !password) return;
+    if (!isLoaded || !signIn || !email.trim() || !password) return;
     setLoading(true);
     try {
-      const result = await signIn.create({ identifier: email, password });
+      const result = await signIn.create({ identifier: email.trim(), password });
       if (result.status === 'complete') {
-        await setActive({ session: result.createdSessionId });
+        await setActive!({ session: result.createdSessionId });
       }
     } catch (err: unknown) {
       const message =
@@ -77,7 +80,7 @@ export default function SignInScreen() {
         {/* Logo + Brand */}
         <View style={styles.brand}>
           <View style={[styles.logoContainer, { backgroundColor: Colors.primary + '20' }]}>
-            <Ionicons name="mic" size={36} color={Colors.primary} />
+            <Ionicons name="mic" size={40} color={Colors.primary} />
           </View>
           <Text style={[styles.appName, { color: theme.text }]}>Kolasys AI</Text>
           <Text style={[styles.tagline, { color: theme.textSecondary }]}>
@@ -87,7 +90,10 @@ export default function SignInScreen() {
 
         {/* Google Sign In */}
         <TouchableOpacity
-          style={[styles.googleButton, { borderColor: theme.border, backgroundColor: theme.surface }]}
+          style={[
+            styles.googleButton,
+            { borderColor: theme.border, backgroundColor: theme.surface },
+          ]}
           onPress={handleGoogleSignIn}
           disabled={googleLoading}
           activeOpacity={0.8}
@@ -113,7 +119,12 @@ export default function SignInScreen() {
 
         {/* Email + Password */}
         <View style={styles.form}>
-          <View style={[styles.inputWrapper, { borderColor: theme.border, backgroundColor: theme.backgroundSecondary }]}>
+          <View
+            style={[
+              styles.inputWrapper,
+              { borderColor: theme.border, backgroundColor: theme.backgroundSecondary },
+            ]}
+          >
             <Ionicons name="mail-outline" size={18} color={theme.textSecondary} />
             <TextInput
               style={[styles.input, { color: theme.text }]}
@@ -126,7 +137,13 @@ export default function SignInScreen() {
               autoComplete="email"
             />
           </View>
-          <View style={[styles.inputWrapper, { borderColor: theme.border, backgroundColor: theme.backgroundSecondary }]}>
+
+          <View
+            style={[
+              styles.inputWrapper,
+              { borderColor: theme.border, backgroundColor: theme.backgroundSecondary },
+            ]}
+          >
             <Ionicons name="lock-closed-outline" size={18} color={theme.textSecondary} />
             <TextInput
               style={[styles.input, { color: theme.text }]}
@@ -137,7 +154,7 @@ export default function SignInScreen() {
               secureTextEntry={!showPassword}
               autoComplete="password"
             />
-            <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+            <TouchableOpacity onPress={() => setShowPassword((v) => !v)}>
               <Ionicons
                 name={showPassword ? 'eye-off-outline' : 'eye-outline'}
                 size={18}
@@ -147,9 +164,12 @@ export default function SignInScreen() {
           </View>
 
           <TouchableOpacity
-            style={[styles.signInButton, { opacity: loading || !email || !password ? 0.6 : 1 }]}
+            style={[
+              styles.signInButton,
+              { opacity: loading || !email.trim() || !password ? 0.6 : 1 },
+            ]}
             onPress={handleEmailSignIn}
-            disabled={loading || !email || !password}
+            disabled={loading || !email.trim() || !password}
             activeOpacity={0.8}
           >
             {loading ? (
@@ -182,8 +202,8 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   logoContainer: {
-    width: 80,
-    height: 80,
+    width: 84,
+    height: 84,
     borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
@@ -200,7 +220,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    height: 50,
+    height: 52,
     borderRadius: 14,
     borderWidth: 1.5,
     gap: 10,
@@ -227,7 +247,7 @@ const styles = StyleSheet.create({
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: 50,
+    height: 52,
     borderRadius: 12,
     borderWidth: 1.5,
     paddingHorizontal: 14,
@@ -238,7 +258,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   signInButton: {
-    height: 50,
+    height: 52,
     borderRadius: 14,
     backgroundColor: Colors.primary,
     alignItems: 'center',

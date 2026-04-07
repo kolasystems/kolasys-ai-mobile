@@ -1,4 +1,6 @@
-import 'react-native-screens/native-stack';
+import { enableScreens } from 'react-native-screens';
+enableScreens();
+
 import React from 'react';
 import { View, ActivityIndicator, StyleSheet, useColorScheme } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
@@ -41,7 +43,7 @@ function RootNavigator() {
 
 // ─── Navigation theme ─────────────────────────────────────────────────────────
 
-function ThemedNavigationContainer({ children }: { children: React.ReactNode }) {
+function ThemedApp() {
   const isDark = useColorScheme() === 'dark';
   const theme = getThemeColors(isDark);
 
@@ -64,24 +66,22 @@ function ThemedNavigationContainer({ children }: { children: React.ReactNode }) 
   };
 
   return (
-    <NavigationContainer theme={navTheme}>{children}</NavigationContainer>
+    <NavigationContainer theme={navTheme}>
+      <TRPCProvider>
+        <RootNavigator />
+        <StatusBar style={isDark ? 'light' : 'dark'} />
+      </TRPCProvider>
+    </NavigationContainer>
   );
 }
 
-// ─── Root App ─────────────────────────────────────────────────────────────────
+// ─── Root ─────────────────────────────────────────────────────────────────────
 
 export default function App() {
-  const isDark = useColorScheme() === 'dark';
-
   return (
     <SafeAreaProvider>
       <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY} tokenCache={tokenCache}>
-        <ThemedNavigationContainer>
-          <TRPCProvider>
-            <RootNavigator />
-            <StatusBar style={isDark ? 'light' : 'dark'} />
-          </TRPCProvider>
-        </ThemedNavigationContainer>
+        <ThemedApp />
       </ClerkProvider>
     </SafeAreaProvider>
   );

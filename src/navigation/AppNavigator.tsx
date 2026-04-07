@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, useColorScheme } from 'react-native';
+import { StyleSheet, useColorScheme } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
@@ -43,7 +43,6 @@ function RecordingsNavigator() {
         headerStyle: { backgroundColor: theme.background },
         headerTitleStyle: { color: theme.text, fontWeight: '700' },
         headerShadowVisible: false,
-        headerBackButtonDisplayMode: 'minimal',
         headerTintColor: Colors.primary,
       }}
     >
@@ -55,75 +54,64 @@ function RecordingsNavigator() {
       <RecordingsStack.Screen
         name="RecordingDetail"
         component={RecordingDetailScreen}
-        options={{ title: '', headerTransparent: false }}
+        options={{ title: 'Recording', headerBackButtonDisplayMode: 'minimal' }}
       />
     </RecordingsStack.Navigator>
   );
 }
 
-// ─── Bottom Tab Navigator ─────────────────────────────────────────────────────
+// ─── Tab Navigator ────────────────────────────────────────────────────────────
 
 const Tab = createBottomTabNavigator<TabParamList>();
-
-function RecordTabButton({
-  onPress,
-  isDark,
-}: {
-  onPress?: () => void;
-  isDark: boolean;
-}) {
-  return (
-    <View style={styles.recordButtonWrapper}>
-      <View
-        style={[styles.recordButton, { backgroundColor: Colors.primary }]}
-        // Using a touchable handled by tab navigator
-      >
-        <Ionicons name="mic" size={26} color={Colors.white} />
-      </View>
-    </View>
-  );
-}
 
 export default function AppNavigator() {
   const isDark = useColorScheme() === 'dark';
   const theme = getThemeColors(isDark);
   const insets = useSafeAreaInsets();
+  const bottomPad = insets.bottom > 0 ? insets.bottom : 10;
 
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
+        // Header
         headerStyle: { backgroundColor: theme.background },
         headerTitleStyle: { color: theme.text, fontWeight: '700', fontSize: 18 },
         headerShadowVisible: false,
+        // Tab bar
         tabBarStyle: {
           backgroundColor: theme.tabBar,
           borderTopColor: theme.tabBarBorder,
           borderTopWidth: StyleSheet.hairlineWidth,
-          paddingBottom: insets.bottom > 0 ? insets.bottom : 8,
-          height: 56 + (insets.bottom > 0 ? insets.bottom : 8),
+          paddingBottom: bottomPad,
+          height: 56 + bottomPad,
         },
         tabBarActiveTintColor: Colors.primary,
         tabBarInactiveTintColor: theme.textSecondary,
         tabBarLabelStyle: { fontSize: 10, fontWeight: '600', marginTop: 2 },
+        // Icons
         tabBarIcon: ({ focused, color, size }) => {
-          const icons: Record<string, { active: string; inactive: string }> = {
-            Home: { active: 'home', inactive: 'home-outline' },
-            Record: { active: 'mic', inactive: 'mic-outline' },
-            Recordings: { active: 'list', inactive: 'list-outline' },
-            Calendar: { active: 'calendar', inactive: 'calendar-outline' },
-            Settings: { active: 'settings', inactive: 'settings-outline' },
+          const iconMap: Record<string, [string, string]> = {
+            Home:       ['home',     'home-outline'],
+            Record:     ['mic',      'mic-outline'],
+            Recordings: ['list',     'list-outline'],
+            Calendar:   ['calendar', 'calendar-outline'],
+            Settings:   ['settings', 'settings-outline'],
           };
-          const icon = icons[route.name];
+          const [active, inactive] = iconMap[route.name] ?? ['help', 'help-outline'];
+
           if (route.name === 'Record') {
             return (
-              <View style={[styles.recordTabIcon, { backgroundColor: focused ? Colors.primary : Colors.primary + 'DD' }]}>
-                <Ionicons name="mic" size={22} color={Colors.white} />
-              </View>
+              <Ionicons
+                name={(focused ? 'mic' : 'mic-outline') as never}
+                size={size + 4}
+                color={Colors.primary}
+              />
             );
           }
+
           return (
             <Ionicons
-              name={(focused ? icon?.active : icon?.inactive) as never}
+              name={(focused ? active : inactive) as never}
               size={size}
               color={color}
             />
@@ -131,52 +119,33 @@ export default function AppNavigator() {
         },
       })}
     >
-      <Tab.Screen name="Home" component={HomeScreen} options={{ title: 'Home', headerTitle: 'Kolasys AI' }} />
-      <Tab.Screen name="Recordings" component={RecordingsNavigator} options={{ title: 'Recordings', headerShown: false }} />
+      <Tab.Screen
+        name="Home"
+        component={HomeScreen}
+        options={{ title: 'Home', headerTitle: 'Kolasys AI' }}
+      />
+      <Tab.Screen
+        name="Recordings"
+        component={RecordingsNavigator}
+        options={{ title: 'Recordings', headerShown: false }}
+      />
       <Tab.Screen
         name="Record"
         component={RecordScreen}
-        options={{
-          title: 'Record',
-          tabBarLabel: 'Record',
-          tabBarStyle: { display: 'none' },
-          headerTitle: 'New Recording',
-        }}
+        options={{ title: 'Record', headerTitle: 'New Recording' }}
       />
-      <Tab.Screen name="Calendar" component={CalendarScreen} options={{ title: 'Calendar' }} />
-      <Tab.Screen name="Settings" component={SettingsScreen} options={{ title: 'Settings' }} />
+      <Tab.Screen
+        name="Calendar"
+        component={CalendarScreen}
+        options={{ title: 'Calendar' }}
+      />
+      <Tab.Screen
+        name="Settings"
+        component={SettingsScreen}
+        options={{ title: 'Settings' }}
+      />
     </Tab.Navigator>
   );
 }
 
-const styles = StyleSheet.create({
-  recordButtonWrapper: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 6,
-  },
-  recordButton: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  recordTabIcon: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 4,
-  },
-});
+const styles = StyleSheet.create({});

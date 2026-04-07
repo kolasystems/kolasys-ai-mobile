@@ -10,7 +10,7 @@ import {
   useColorScheme,
   Linking,
 } from 'react-native';
-import { useUser, useAuth, useOrganization, useOrganizationList } from '@clerk/clerk-expo';
+import { useUser, useAuth, useOrganization } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getThemeColors, Colors } from '../lib/theme';
