@@ -1,5 +1,3 @@
-import { Appearance } from 'react-native';
-
 export const Colors = {
   primary: '#5B8DEF',
   primaryDark: '#4070D4',
@@ -34,24 +32,3 @@ export const Colors = {
   gray800: '#1F2937',
   gray900: '#111827',
 } as const;
-
-export function getThemeColors(isDark: boolean) {
-  return {
-    background: isDark ? Colors.dark : Colors.white,
-    backgroundSecondary: isDark ? Colors.darkSecondary : Colors.gray50,
-    backgroundTertiary: isDark ? Colors.darkTertiary : Colors.gray100,
-    surface: isDark ? '#1E2040' : Colors.white,
-    border: isDark ? '#2A2D4E' : Colors.gray200,
-    text: isDark ? Colors.white : Colors.gray900,
-    textSecondary: isDark ? Colors.gray400 : Colors.gray500,
-    textMuted: isDark ? Colors.gray600 : Colors.gray400,
-    primary: Colors.primary,
-    tabBar: isDark ? '#151525' : Colors.white,
-    tabBarBorder: isDark ? '#2A2D4E' : Colors.gray200,
-  };
-}
-
-export function useColorScheme() {
-  const scheme = Appearance.getColorScheme();
-  return scheme === 'dark';
-}

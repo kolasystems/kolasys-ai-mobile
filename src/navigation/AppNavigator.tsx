@@ -12,7 +12,7 @@ import RecordingDetailScreen from '../screens/RecordingDetailScreen';
 import CalendarScreen from '../screens/CalendarScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 
-import { getThemeColors, Colors, useColorScheme } from '../lib/theme';
+import { Colors } from '../lib/theme';
 
 // ─── Param Lists ──────────────────────────────────────────────────────────────
 
@@ -34,14 +34,11 @@ export type RecordingsStackParamList = {
 const RecordingsStack = createNativeStackNavigator<RecordingsStackParamList>();
 
 function RecordingsNavigator() {
-  const isDark = useColorScheme();
-  const theme = getThemeColors(isDark);
-
   return (
     <RecordingsStack.Navigator
       screenOptions={{
-        headerStyle: { backgroundColor: theme.background },
-        headerTitleStyle: { color: theme.text, fontWeight: '700' },
+        headerStyle: { backgroundColor: '#ffffff' },
+        headerTitleStyle: { color: '#111827', fontWeight: '700' },
         headerShadowVisible: false,
         headerTintColor: Colors.primary,
       }}
@@ -65,8 +62,6 @@ function RecordingsNavigator() {
 const Tab = createBottomTabNavigator<TabParamList>();
 
 export default function AppNavigator() {
-  const isDark = useColorScheme();
-  const theme = getThemeColors(isDark);
   const insets = useSafeAreaInsets();
   const bottomPad = insets.bottom > 0 ? insets.bottom : 10;
 
@@ -74,19 +69,19 @@ export default function AppNavigator() {
     <Tab.Navigator
       screenOptions={({ route }) => ({
         // Header
-        headerStyle: { backgroundColor: theme.background },
-        headerTitleStyle: { color: theme.text, fontWeight: '700', fontSize: 18 },
+        headerStyle: { backgroundColor: '#ffffff' },
+        headerTitleStyle: { color: '#111827', fontWeight: '700', fontSize: 18 },
         headerShadowVisible: false,
         // Tab bar
         tabBarStyle: {
-          backgroundColor: theme.tabBar,
-          borderTopColor: theme.tabBarBorder,
+          backgroundColor: '#ffffff',
+          borderTopColor: '#e5e7eb',
           borderTopWidth: StyleSheet.hairlineWidth,
           paddingBottom: bottomPad,
           height: 56 + bottomPad,
         },
         tabBarActiveTintColor: Colors.primary,
-        tabBarInactiveTintColor: theme.textSecondary,
+        tabBarInactiveTintColor: '#6b7280',
         tabBarLabelStyle: { fontSize: 10, fontWeight: '600', marginTop: 2 },
         // Icons
         tabBarIcon: ({ focused, color, size }) => {

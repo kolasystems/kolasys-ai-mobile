@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
-  useColorScheme,
   Linking,
 } from 'react-native';
 import * as Calendar from 'expo-calendar';
@@ -15,7 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
-import { getThemeColors, Colors } from '../lib/theme';
+import { Colors } from '../lib/theme';
 import type { TabParamList } from '../navigation/AppNavigator';
 
 type Nav = BottomTabNavigationProp<TabParamList>;
@@ -53,7 +52,6 @@ function formatEventDate(date: Date): string {
   const today = new Date();
   const tomorrow = new Date(today);
   tomorrow.setDate(today.getDate() + 1);
-
   if (d.toDateString() === today.toDateString()) return 'Today';
   if (d.toDateString() === tomorrow.toDateString()) return 'Tomorrow';
   return d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
@@ -69,8 +67,6 @@ function groupByDate(events: CalendarEvent[]): Record<string, CalendarEvent[]> {
 }
 
 export default function CalendarScreen() {
-  const isDark = useColorScheme() === 'dark';
-  const theme = getThemeColors(isDark);
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<Nav>();
 
@@ -115,13 +111,11 @@ export default function CalendarScreen() {
       const calendars = await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT);
       const now = new Date();
       const weekFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-
       const rawEvents = await Calendar.getEventsAsync(
         calendars.map((c) => c.id),
         now,
         weekFromNow
       );
-
       const processed: CalendarEvent[] = rawEvents
         .filter((e) => e.title && !e.allDay)
         .map((e) => {
@@ -139,7 +133,6 @@ export default function CalendarScreen() {
           };
         })
         .sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
-
       setEvents(processed);
     } catch (err) {
       console.error('Failed to load calendar events:', err);
@@ -155,19 +148,12 @@ export default function CalendarScreen() {
       `Send Kolasys AI bot to "${event.title}"?\n\nThe bot will join and record the meeting automatically.`,
       [
         { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Deploy Bot',
-          onPress: () => {
-            // Navigate to Record tab with bot deploy
-            navigation.navigate('Record');
-            // TODO: pass meetingUrl to RecordScreen
-          },
-        },
+        { text: 'Deploy Bot', onPress: () => { navigation.navigate('Record'); } },
       ]
     );
   };
 
-  const handleRecordDevice = (event: CalendarEvent) => {
+  const handleRecordDevice = (_event: CalendarEvent) => {
     navigation.navigate('Record');
   };
 
@@ -176,7 +162,7 @@ export default function CalendarScreen() {
 
   if (hasPermission === null) {
     return (
-      <View style={[styles.centered, { backgroundColor: theme.background }]}>
+      <View style={styles.centered}>
         <ActivityIndicator color={Colors.primary} />
       </View>
     );
@@ -184,12 +170,12 @@ export default function CalendarScreen() {
 
   if (!hasPermission) {
     return (
-      <View style={[styles.centered, { backgroundColor: theme.background, paddingHorizontal: 32 }]}>
-        <View style={[styles.permissionIcon, { backgroundColor: Colors.primary + '15' }]}>
+      <View style={[styles.centered, { paddingHorizontal: 32 }]}>
+        <View style={styles.permissionIcon}>
           <Ionicons name="calendar-outline" size={48} color={Colors.primary} />
         </View>
-        <Text style={[styles.permissionTitle, { color: theme.text }]}>Connect Your Calendar</Text>
-        <Text style={[styles.permissionSubtitle, { color: theme.textSecondary }]}>
+        <Text style={styles.permissionTitle}>Connect Your Calendar</Text>
+        <Text style={styles.permissionSubtitle}>
           See upcoming meetings and start recording or deploy a bot directly from your calendar.
         </Text>
         <TouchableOpacity style={styles.connectButton} onPress={requestPermission}>
@@ -201,16 +187,14 @@ export default function CalendarScreen() {
   }
 
   return (
-    <View style={[styles.screen, { backgroundColor: theme.background }]}>
+    <View style={styles.screen}>
       {loading ? (
         <ActivityIndicator color={Colors.primary} style={styles.loader} />
       ) : events.length === 0 ? (
         <View style={[styles.centered, { padding: 32 }]}>
-          <Ionicons name="calendar-outline" size={40} color={theme.textMuted} />
-          <Text style={[styles.emptyTitle, { color: theme.text }]}>No upcoming meetings</Text>
-          <Text style={[styles.emptySubtitle, { color: theme.textSecondary }]}>
-            Your calendar is clear for the next 7 days.
-          </Text>
+          <Ionicons name="calendar-outline" size={40} color="#9ca3af" />
+          <Text style={styles.emptyTitle}>No upcoming meetings</Text>
+          <Text style={styles.emptySubtitle}>Your calendar is clear for the next 7 days.</Text>
         </View>
       ) : (
         <ScrollView
@@ -219,30 +203,21 @@ export default function CalendarScreen() {
         >
           {dateGroups.map((dateKey) => (
             <View key={dateKey} style={styles.dateGroup}>
-              <Text style={[styles.dateHeader, { color: theme.textSecondary }]}>
+              <Text style={styles.dateHeader}>
                 {formatEventDate(grouped[dateKey][0].startDate)}
               </Text>
               {grouped[dateKey].map((event) => (
-                <View
-                  key={event.id}
-                  style={[styles.eventCard, { backgroundColor: theme.surface, borderColor: theme.border }]}
-                >
+                <View key={event.id} style={styles.eventCard}>
                   <View style={styles.eventTime}>
                     <View style={[styles.timeDot, { backgroundColor: event.isOnline ? Colors.primary : Colors.gray400 }]} />
-                    <Text style={[styles.timeText, { color: theme.textSecondary }]}>
-                      {formatEventTime(event.startDate)}
-                    </Text>
+                    <Text style={styles.timeText}>{formatEventTime(event.startDate)}</Text>
                   </View>
                   <View style={styles.eventContent}>
-                    <Text style={[styles.eventTitle, { color: theme.text }]} numberOfLines={2}>
-                      {event.title}
-                    </Text>
+                    <Text style={styles.eventTitle} numberOfLines={2}>{event.title}</Text>
                     {event.location && !event.isOnline && (
                       <View style={styles.eventMeta}>
-                        <Ionicons name="location-outline" size={12} color={theme.textSecondary} />
-                        <Text style={[styles.eventMetaText, { color: theme.textSecondary }]} numberOfLines={1}>
-                          {event.location}
-                        </Text>
+                        <Ionicons name="location-outline" size={12} color="#6b7280" />
+                        <Text style={styles.eventMetaText} numberOfLines={1}>{event.location}</Text>
                       </View>
                     )}
                     {event.isOnline && (
@@ -263,11 +238,11 @@ export default function CalendarScreen() {
                       </TouchableOpacity>
                     )}
                     <TouchableOpacity
-                      style={[styles.actionBtn, { backgroundColor: theme.backgroundSecondary, borderWidth: 1, borderColor: theme.border }]}
+                      style={styles.actionBtnSecondary}
                       onPress={() => handleRecordDevice(event)}
                     >
-                      <Ionicons name="mic-outline" size={14} color={theme.text} />
-                      <Text style={[styles.actionBtnText, { color: theme.text }]}>Record</Text>
+                      <Ionicons name="mic-outline" size={14} color="#111827" />
+                      <Text style={styles.actionBtnSecondaryText}>Record</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -281,13 +256,20 @@ export default function CalendarScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1 },
-  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14 },
+  screen: { flex: 1, backgroundColor: '#ffffff' },
+  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14, backgroundColor: '#ffffff' },
   loader: { marginTop: 40 },
   content: { padding: 16, gap: 20 },
-  permissionIcon: { width: 90, height: 90, borderRadius: 45, alignItems: 'center', justifyContent: 'center' },
-  permissionTitle: { fontSize: 22, fontWeight: '700', textAlign: 'center' },
-  permissionSubtitle: { fontSize: 14, textAlign: 'center', lineHeight: 21 },
+  permissionIcon: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.primary + '15',
+  },
+  permissionTitle: { fontSize: 22, fontWeight: '700', textAlign: 'center', color: '#111827' },
+  permissionSubtitle: { fontSize: 14, textAlign: 'center', lineHeight: 21, color: '#6b7280' },
   connectButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -299,13 +281,22 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   connectButtonText: { color: Colors.white, fontSize: 15, fontWeight: '700' },
-  emptyTitle: { fontSize: 18, fontWeight: '600' },
-  emptySubtitle: { fontSize: 14, textAlign: 'center' },
+  emptyTitle: { fontSize: 18, fontWeight: '600', color: '#111827' },
+  emptySubtitle: { fontSize: 14, textAlign: 'center', color: '#6b7280' },
   dateGroup: { gap: 8 },
-  dateHeader: { fontSize: 13, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5, paddingLeft: 4 },
+  dateHeader: {
+    fontSize: 13,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    paddingLeft: 4,
+    color: '#6b7280',
+  },
   eventCard: {
     borderRadius: 14,
     borderWidth: 1,
+    borderColor: '#e5e7eb',
+    backgroundColor: '#ffffff',
     padding: 14,
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -313,11 +304,11 @@ const styles = StyleSheet.create({
   },
   eventTime: { alignItems: 'center', gap: 4, paddingTop: 2, width: 40 },
   timeDot: { width: 8, height: 8, borderRadius: 4 },
-  timeText: { fontSize: 11, textAlign: 'center' },
+  timeText: { fontSize: 11, textAlign: 'center', color: '#6b7280' },
   eventContent: { flex: 1, gap: 4 },
-  eventTitle: { fontSize: 14, fontWeight: '600', lineHeight: 20 },
+  eventTitle: { fontSize: 14, fontWeight: '600', lineHeight: 20, color: '#111827' },
   eventMeta: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  eventMetaText: { fontSize: 12 },
+  eventMetaText: { fontSize: 12, color: '#6b7280' },
   eventActions: { flexDirection: 'row', gap: 6, alignSelf: 'center' },
   actionBtn: {
     flexDirection: 'row',
@@ -328,4 +319,16 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   actionBtnText: { fontSize: 12, fontWeight: '600' },
+  actionBtnSecondary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    backgroundColor: '#f9fafb',
+    gap: 4,
+  },
+  actionBtnSecondaryText: { fontSize: 12, fontWeight: '600', color: '#111827' },
 });

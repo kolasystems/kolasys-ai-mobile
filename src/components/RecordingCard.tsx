@@ -1,8 +1,7 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, useColorScheme } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBadge } from './StatusBadge';
-import { getThemeColors, Colors } from '../lib/theme';
 import type { Recording } from '../lib/trpc';
 
 function formatDuration(seconds: number | null): string {
@@ -25,9 +24,6 @@ interface Props {
 }
 
 export function RecordingCard({ recording, onPress }: Props) {
-  const isDark = useColorScheme() === 'dark';
-  const theme = getThemeColors(isDark);
-
   const sourceIcon =
     recording.source === 'MEETING_BOT'
       ? 'videocam-outline'
@@ -36,36 +32,28 @@ export function RecordingCard({ recording, onPress }: Props) {
       : 'cloud-upload-outline';
 
   return (
-    <TouchableOpacity
-      style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}
-      onPress={onPress}
-      activeOpacity={0.7}
-    >
+    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.7}>
       <View style={styles.top}>
         <View style={styles.titleRow}>
-          <Ionicons name={sourceIcon} size={14} color={theme.textSecondary} />
-          <Text style={[styles.title, { color: theme.text }]} numberOfLines={1}>
+          <Ionicons name={sourceIcon} size={14} color="#6b7280" />
+          <Text style={styles.title} numberOfLines={1}>
             {recording.title}
           </Text>
         </View>
         <StatusBadge status={recording.status} size="sm" />
       </View>
       <View style={styles.meta}>
-        <Text style={[styles.metaText, { color: theme.textSecondary }]}>
-          {formatDate(recording.createdAt)}
-        </Text>
+        <Text style={styles.metaText}>{formatDate(recording.createdAt)}</Text>
         {recording.duration != null && (
           <>
-            <Text style={[styles.dot, { color: theme.textMuted }]}>·</Text>
-            <Ionicons name="time-outline" size={12} color={theme.textSecondary} />
-            <Text style={[styles.metaText, { color: theme.textSecondary }]}>
-              {formatDuration(recording.duration)}
-            </Text>
+            <Text style={styles.dot}>·</Text>
+            <Ionicons name="time-outline" size={12} color="#6b7280" />
+            <Text style={styles.metaText}>{formatDuration(recording.duration)}</Text>
           </>
         )}
       </View>
       {recording.note?.summary && (
-        <Text style={[styles.summary, { color: theme.textSecondary }]} numberOfLines={2}>
+        <Text style={styles.summary} numberOfLines={2}>
           {recording.note.summary}
         </Text>
       )}
@@ -77,6 +65,8 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: 12,
     borderWidth: 1,
+    borderColor: '#e5e7eb',
+    backgroundColor: '#ffffff',
     padding: 14,
     marginBottom: 10,
     gap: 6,
@@ -97,6 +87,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     fontWeight: '600',
+    color: '#111827',
   },
   meta: {
     flexDirection: 'row',
@@ -105,13 +96,16 @@ const styles = StyleSheet.create({
   },
   metaText: {
     fontSize: 12,
+    color: '#6b7280',
   },
   dot: {
     fontSize: 12,
+    color: '#9ca3af',
   },
   summary: {
     fontSize: 13,
     lineHeight: 18,
     marginTop: 2,
+    color: '#6b7280',
   },
 });

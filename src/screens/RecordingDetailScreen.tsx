@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Share,
-  useColorScheme,
   RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,7 +17,7 @@ import type { Recording, NoteSection, ActionItem, TranscriptSegment } from '../l
 import { StatusBadge } from '../components/StatusBadge';
 import { ActionItemRow } from '../components/ActionItemRow';
 import { TranscriptSegmentRow } from '../components/TranscriptSegment';
-import { getThemeColors, Colors } from '../lib/theme';
+import { Colors } from '../lib/theme';
 import type { RecordingsStackParamList } from '../navigation/AppNavigator';
 
 type Props = NativeStackScreenProps<RecordingsStackParamList, 'RecordingDetail'>;
@@ -45,8 +44,6 @@ function formatDate(date: Date): string {
 const PROCESSING_STATUSES = ['PENDING', 'PROCESSING', 'TRANSCRIBING', 'SUMMARIZING'];
 
 export default function RecordingDetailScreen() {
-  const isDark = useColorScheme() === 'dark';
-  const theme = getThemeColors(isDark);
   const route = useRoute<Props['route']>();
   const navigation = useNavigation<NativeStackNavigationProp<RecordingsStackParamList>>();
   const { id } = route.params;
@@ -76,10 +73,7 @@ export default function RecordingDetailScreen() {
 
   const handleToggleAction = useCallback(
     (actionId: string, completed: boolean) => {
-      updateActionItem.mutate({
-        id: actionId,
-        status: completed ? 'COMPLETED' : 'OPEN',
-      });
+      updateActionItem.mutate({ id: actionId, status: completed ? 'COMPLETED' : 'OPEN' });
     },
     [updateActionItem]
   );
@@ -109,7 +103,7 @@ export default function RecordingDetailScreen() {
 
   if (isLoading) {
     return (
-      <View style={[styles.centered, { backgroundColor: theme.background }]}>
+      <View style={styles.centered}>
         <ActivityIndicator size="large" color={Colors.primary} />
       </View>
     );
@@ -117,9 +111,9 @@ export default function RecordingDetailScreen() {
 
   if (!recording) {
     return (
-      <View style={[styles.centered, { backgroundColor: theme.background }]}>
-        <Ionicons name="alert-circle-outline" size={40} color={theme.textSecondary} />
-        <Text style={[styles.errorText, { color: theme.textSecondary }]}>Recording not found</Text>
+      <View style={styles.centered}>
+        <Ionicons name="alert-circle-outline" size={40} color="#6b7280" />
+        <Text style={styles.errorText}>Recording not found</Text>
       </View>
     );
   }
@@ -128,17 +122,16 @@ export default function RecordingDetailScreen() {
   const pagedSegments = segments.slice(transcriptPage * PAGE_SIZE, (transcriptPage + 1) * PAGE_SIZE);
   const totalPages = Math.ceil(segments.length / PAGE_SIZE);
 
-  // Build speaker index map for color assignment
   const speakerIds = [...new Set(segments.map((s) => s.speaker).filter(Boolean))] as string[];
   const speakerIndexMap: Record<string, number> = {};
-  speakerIds.forEach((id, i) => { speakerIndexMap[id] = i; });
+  speakerIds.forEach((sid, i) => { speakerIndexMap[sid] = i; });
 
   return (
-    <View style={[styles.screen, { backgroundColor: theme.background }]}>
+    <View style={styles.screen}>
       {/* Header */}
-      <View style={[styles.headerBar, { borderBottomColor: theme.border }]}>
+      <View style={styles.headerBar}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={24} color={theme.text} />
+          <Ionicons name="chevron-back" size={24} color="#111827" />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
           <StatusBadge status={recording.status} size="sm" />
@@ -162,19 +155,15 @@ export default function RecordingDetailScreen() {
       >
         {/* Title block */}
         <View style={styles.titleBlock}>
-          <Text style={[styles.title, { color: theme.text }]}>{recording.title}</Text>
+          <Text style={styles.title}>{recording.title}</Text>
           <View style={styles.metaRow}>
-            <Ionicons name="calendar-outline" size={13} color={theme.textSecondary} />
-            <Text style={[styles.metaText, { color: theme.textSecondary }]}>
-              {formatDate(recording.createdAt)}
-            </Text>
+            <Ionicons name="calendar-outline" size={13} color="#6b7280" />
+            <Text style={styles.metaText}>{formatDate(recording.createdAt)}</Text>
             {recording.duration != null && (
               <>
-                <Text style={[styles.metaDot, { color: theme.textMuted }]}>·</Text>
-                <Ionicons name="time-outline" size={13} color={theme.textSecondary} />
-                <Text style={[styles.metaText, { color: theme.textSecondary }]}>
-                  {formatDuration(recording.duration)}
-                </Text>
+                <Text style={styles.metaDot}>·</Text>
+                <Ionicons name="time-outline" size={13} color="#6b7280" />
+                <Text style={styles.metaText}>{formatDuration(recording.duration)}</Text>
               </>
             )}
           </View>
@@ -187,8 +176,7 @@ export default function RecordingDetailScreen() {
             <View style={styles.processingText}>
               <Text style={[styles.processingTitle, { color: Colors.primary }]}>
                 {recording.status === 'TRANSCRIBING' ? 'Transcribing audio…' :
-                 recording.status === 'SUMMARIZING' ? 'Generating notes…' :
-                 'Processing…'}
+                 recording.status === 'SUMMARIZING' ? 'Generating notes…' : 'Processing…'}
               </Text>
               <Text style={[styles.processingSubtitle, { color: Colors.primary + 'AA' }]}>
                 This usually takes 1–3 minutes
@@ -210,14 +198,14 @@ export default function RecordingDetailScreen() {
         {/* Tabs */}
         {recording.status === 'READY' && (
           <>
-            <View style={[styles.tabs, { borderBottomColor: theme.border }]}>
+            <View style={styles.tabs}>
               {(['notes', 'transcript', 'actions'] as Tab[]).map((tab) => (
                 <TouchableOpacity
                   key={tab}
-                  style={[styles.tab, activeTab === tab && { borderBottomColor: Colors.primary, borderBottomWidth: 2 }]}
+                  style={[styles.tab, activeTab === tab && styles.tabActive]}
                   onPress={() => setActiveTab(tab)}
                 >
-                  <Text style={[styles.tabText, { color: activeTab === tab ? Colors.primary : theme.textSecondary }]}>
+                  <Text style={[styles.tabText, { color: activeTab === tab ? Colors.primary : '#6b7280' }]}>
                     {tab.charAt(0).toUpperCase() + tab.slice(1)}
                     {tab === 'actions' && recording.note?.actionItems?.length
                       ? ` (${recording.note.actionItems.length})`
@@ -227,29 +215,25 @@ export default function RecordingDetailScreen() {
               ))}
             </View>
 
-            {/* Notes tab */}
             {activeTab === 'notes' && recording.note && (
               <View style={styles.tabContent}>
-                {/* Summary */}
                 <View style={[styles.summaryCard, { backgroundColor: Colors.primary + '12', borderColor: Colors.primary + '30' }]}>
                   <Text style={[styles.summaryLabel, { color: Colors.primary }]}>Summary</Text>
-                  <Text style={[styles.summaryText, { color: theme.text }]}>{recording.note.summary}</Text>
+                  <Text style={styles.summaryText}>{recording.note.summary}</Text>
                 </View>
-                {/* Sections */}
                 {recording.note.sections?.map((section: NoteSection) => (
                   <View key={section.id} style={styles.section}>
-                    <Text style={[styles.sectionTitle, { color: theme.text }]}>{section.title}</Text>
-                    <Text style={[styles.sectionContent, { color: theme.textSecondary }]}>{section.content}</Text>
+                    <Text style={styles.sectionTitle}>{section.title}</Text>
+                    <Text style={styles.sectionContent}>{section.content}</Text>
                   </View>
                 ))}
               </View>
             )}
 
-            {/* Transcript tab */}
             {activeTab === 'transcript' && (
               <View style={styles.tabContent}>
                 {segments.length === 0 ? (
-                  <Text style={[styles.emptyTab, { color: theme.textSecondary }]}>No transcript available</Text>
+                  <Text style={styles.emptyTab}>No transcript available</Text>
                 ) : (
                   <>
                     {pagedSegments.map((seg) => (
@@ -264,19 +248,17 @@ export default function RecordingDetailScreen() {
                         <TouchableOpacity
                           disabled={transcriptPage === 0}
                           onPress={() => setTranscriptPage(transcriptPage - 1)}
-                          style={[styles.pageButton, { opacity: transcriptPage === 0 ? 0.3 : 1, borderColor: theme.border }]}
+                          style={[styles.pageButton, { opacity: transcriptPage === 0 ? 0.3 : 1 }]}
                         >
-                          <Ionicons name="chevron-back" size={18} color={theme.text} />
+                          <Ionicons name="chevron-back" size={18} color="#111827" />
                         </TouchableOpacity>
-                        <Text style={[styles.pageText, { color: theme.textSecondary }]}>
-                          {transcriptPage + 1} / {totalPages}
-                        </Text>
+                        <Text style={styles.pageText}>{transcriptPage + 1} / {totalPages}</Text>
                         <TouchableOpacity
                           disabled={transcriptPage >= totalPages - 1}
                           onPress={() => setTranscriptPage(transcriptPage + 1)}
-                          style={[styles.pageButton, { opacity: transcriptPage >= totalPages - 1 ? 0.3 : 1, borderColor: theme.border }]}
+                          style={[styles.pageButton, { opacity: transcriptPage >= totalPages - 1 ? 0.3 : 1 }]}
                         >
-                          <Ionicons name="chevron-forward" size={18} color={theme.text} />
+                          <Ionicons name="chevron-forward" size={18} color="#111827" />
                         </TouchableOpacity>
                       </View>
                     )}
@@ -285,13 +267,10 @@ export default function RecordingDetailScreen() {
               </View>
             )}
 
-            {/* Actions tab */}
             {activeTab === 'actions' && (
               <View style={styles.tabContent}>
                 {!recording.note?.actionItems?.length ? (
-                  <Text style={[styles.emptyTab, { color: theme.textSecondary }]}>
-                    No action items extracted
-                  </Text>
+                  <Text style={styles.emptyTab}>No action items extracted</Text>
                 ) : (
                   recording.note.actionItems.map((item: ActionItem) => (
                     <ActionItemRow key={item.id} item={item} onToggle={handleToggleAction} />
@@ -307,24 +286,25 @@ export default function RecordingDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1 },
-  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
-  errorText: { fontSize: 16 },
+  screen: { flex: 1, backgroundColor: '#ffffff' },
+  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, backgroundColor: '#ffffff' },
+  errorText: { fontSize: 16, color: '#6b7280' },
   headerBar: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 8,
     paddingVertical: 8,
     borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#e5e7eb',
   },
   backButton: { padding: 8 },
   headerCenter: { flex: 1, alignItems: 'center' },
   shareButton: { padding: 8 },
   titleBlock: { padding: 20, gap: 8 },
-  title: { fontSize: 22, fontWeight: '700', letterSpacing: -0.3 },
+  title: { fontSize: 22, fontWeight: '700', letterSpacing: -0.3, color: '#111827' },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  metaText: { fontSize: 13 },
-  metaDot: { fontSize: 13 },
+  metaText: { fontSize: 13, color: '#6b7280' },
+  metaDot: { fontSize: 13, color: '#9ca3af' },
   processingBanner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -338,17 +318,22 @@ const styles = StyleSheet.create({
   processingText: { flex: 1, gap: 2 },
   processingTitle: { fontSize: 14, fontWeight: '600' },
   processingSubtitle: { fontSize: 12 },
-  tabs: { flexDirection: 'row', borderBottomWidth: StyleSheet.hairlineWidth },
+  tabs: {
+    flexDirection: 'row',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#e5e7eb',
+  },
   tab: { flex: 1, paddingVertical: 12, alignItems: 'center' },
+  tabActive: { borderBottomWidth: 2, borderBottomColor: Colors.primary },
   tabText: { fontSize: 14, fontWeight: '600' },
   tabContent: { padding: 20, gap: 16 },
   summaryCard: { padding: 14, borderRadius: 12, borderWidth: 1, gap: 6 },
   summaryLabel: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
-  summaryText: { fontSize: 14, lineHeight: 21 },
+  summaryText: { fontSize: 14, lineHeight: 21, color: '#111827' },
   section: { gap: 6 },
-  sectionTitle: { fontSize: 15, fontWeight: '700' },
-  sectionContent: { fontSize: 14, lineHeight: 21 },
-  emptyTab: { textAlign: 'center', paddingTop: 20, fontSize: 14 },
+  sectionTitle: { fontSize: 15, fontWeight: '700', color: '#111827' },
+  sectionContent: { fontSize: 14, lineHeight: 21, color: '#6b7280' },
+  emptyTab: { textAlign: 'center', paddingTop: 20, fontSize: 14, color: '#6b7280' },
   pagination: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -356,6 +341,14 @@ const styles = StyleSheet.create({
     gap: 16,
     paddingTop: 12,
   },
-  pageButton: { width: 36, height: 36, borderRadius: 10, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  pageText: { fontSize: 13, fontWeight: '600' },
+  pageButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pageText: { fontSize: 13, fontWeight: '600', color: '#6b7280' },
 });

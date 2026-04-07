@@ -7,13 +7,12 @@ import {
   TouchableOpacity,
   Switch,
   Alert,
-  useColorScheme,
   Linking,
 } from 'react-native';
 import { useUser, useAuth, useOrganization } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { getThemeColors, Colors } from '../lib/theme';
+import { Colors } from '../lib/theme';
 
 function SettingRow({
   icon,
@@ -24,7 +23,6 @@ function SettingRow({
   toggle,
   toggleValue,
   onToggle,
-  theme,
 }: {
   icon: string;
   label: string;
@@ -34,12 +32,10 @@ function SettingRow({
   toggle?: boolean;
   toggleValue?: boolean;
   onToggle?: (v: boolean) => void;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  theme: any;
 }) {
   return (
     <TouchableOpacity
-      style={[styles.settingRow, { borderBottomColor: theme.border }]}
+      style={styles.settingRow}
       onPress={onPress}
       disabled={toggle || !onPress}
       activeOpacity={0.7}
@@ -47,32 +43,28 @@ function SettingRow({
       <View style={[styles.settingIcon, { backgroundColor: (destructive ? Colors.failed : Colors.primary) + '18' }]}>
         <Ionicons name={icon as never} size={18} color={destructive ? Colors.failed : Colors.primary} />
       </View>
-      <Text style={[styles.settingLabel, { color: destructive ? Colors.failed : theme.text }]}>{label}</Text>
+      <Text style={[styles.settingLabel, { color: destructive ? Colors.failed : '#111827' }]}>{label}</Text>
       {toggle ? (
         <Switch
           value={toggleValue}
           onValueChange={onToggle}
-          trackColor={{ false: theme.border, true: Colors.primary }}
+          trackColor={{ false: '#e5e7eb', true: Colors.primary }}
           thumbColor={Colors.white}
         />
       ) : value ? (
-        <Text style={[styles.settingValue, { color: theme.textSecondary }]}>{value}</Text>
+        <Text style={styles.settingValue}>{value}</Text>
       ) : onPress ? (
-        <Ionicons name="chevron-forward" size={16} color={theme.textSecondary} />
+        <Ionicons name="chevron-forward" size={16} color="#6b7280" />
       ) : null}
     </TouchableOpacity>
   );
 }
 
-function SectionHeader({ title, theme }: { title: string; theme: ReturnType<typeof getThemeColors> }) {
-  return (
-    <Text style={[styles.sectionHeader, { color: theme.textSecondary }]}>{title}</Text>
-  );
+function SectionHeader({ title }: { title: string }) {
+  return <Text style={styles.sectionHeader}>{title}</Text>;
 }
 
 export default function SettingsScreen() {
-  const isDark = useColorScheme() === 'dark';
-  const theme = getThemeColors(isDark);
   const insets = useSafeAreaInsets();
   const { user } = useUser();
   const { signOut } = useAuth();
@@ -84,11 +76,7 @@ export default function SettingsScreen() {
   const handleSignOut = () => {
     Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
       { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Sign Out',
-        style: 'destructive',
-        onPress: () => void signOut(),
-      },
+      { text: 'Sign Out', style: 'destructive', onPress: () => void signOut() },
     ]);
   };
 
@@ -97,71 +85,58 @@ export default function SettingsScreen() {
 
   return (
     <ScrollView
-      style={[styles.screen, { backgroundColor: theme.background }]}
+      style={styles.screen}
       contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 24 }]}
       showsVerticalScrollIndicator={false}
     >
       {/* Profile card */}
-      <View style={[styles.profileCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-        <View style={[styles.avatar, { backgroundColor: Colors.primary }]}>
+      <View style={styles.profileCard}>
+        <View style={styles.avatar}>
           <Text style={styles.avatarText}>{fullName.charAt(0).toUpperCase()}</Text>
         </View>
         <View style={styles.profileInfo}>
-          <Text style={[styles.profileName, { color: theme.text }]}>{fullName}</Text>
-          <Text style={[styles.profileEmail, { color: theme.textSecondary }]}>{email}</Text>
+          <Text style={styles.profileName}>{fullName}</Text>
+          <Text style={styles.profileEmail}>{email}</Text>
         </View>
       </View>
 
       {/* Organisation */}
       {organization && (
         <>
-          <SectionHeader title="ORGANISATION" theme={theme} />
-          <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            <SettingRow
-              icon="business-outline"
-              label={organization.name}
-              value="Active org"
-              theme={theme}
-            />
+          <SectionHeader title="ORGANISATION" />
+          <View style={styles.section}>
+            <SettingRow icon="business-outline" label={organization.name} value="Active org" />
           </View>
         </>
       )}
 
       {/* Integrations */}
-      <SectionHeader title="INTEGRATIONS" theme={theme} />
-      <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+      <SectionHeader title="INTEGRATIONS" />
+      <View style={styles.section}>
         <SettingRow
           icon="logo-slack"
           label="Slack"
           value="Connect"
           onPress={() => Alert.alert('Slack', 'Configure Slack integration in the web app at app.kolasys.ai')}
-          theme={theme}
         />
         <SettingRow
           icon="document-text-outline"
           label="Notion"
           value="Connect"
           onPress={() => Alert.alert('Notion', 'Configure Notion integration in the web app at app.kolasys.ai')}
-          theme={theme}
         />
-        <SettingRow
-          icon="calendar-outline"
-          label="Google Calendar"
-          value="Connected"
-          theme={theme}
-        />
+        <SettingRow icon="calendar-outline" label="Google Calendar" value="Connected" />
       </View>
 
       {/* Notifications */}
-      <SectionHeader title="NOTIFICATIONS" theme={theme} />
-      <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+      <SectionHeader title="NOTIFICATIONS" />
+      <View style={styles.section}>
         <SettingRow
           icon="notifications-outline"
           label="Notes ready alerts"
           toggle
           toggleValue={notificationsEnabled}
           onToggle={setNotificationsEnabled}
-          theme={theme}
         />
         <SettingRow
           icon="mail-outline"
@@ -169,57 +144,42 @@ export default function SettingsScreen() {
           toggle
           toggleValue={weeklyDigestEnabled}
           onToggle={setWeeklyDigestEnabled}
-          theme={theme}
         />
       </View>
 
       {/* About */}
-      <SectionHeader title="ABOUT" theme={theme} />
-      <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+      <SectionHeader title="ABOUT" />
+      <View style={styles.section}>
         <SettingRow
           icon="globe-outline"
           label="Web App"
           value="app.kolasys.ai"
           onPress={() => void Linking.openURL('https://app.kolasys.ai')}
-          theme={theme}
         />
         <SettingRow
           icon="shield-checkmark-outline"
           label="Privacy Policy"
           onPress={() => void Linking.openURL('https://kolasys.ai/privacy')}
-          theme={theme}
         />
         <SettingRow
           icon="document-outline"
           label="Terms of Service"
           onPress={() => void Linking.openURL('https://kolasys.ai/terms')}
-          theme={theme}
         />
-        <SettingRow
-          icon="information-circle-outline"
-          label="Version"
-          value="1.0.0"
-          theme={theme}
-        />
+        <SettingRow icon="information-circle-outline" label="Version" value="1.0.0" />
       </View>
 
       {/* Sign Out */}
-      <SectionHeader title="" theme={theme} />
-      <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-        <SettingRow
-          icon="log-out-outline"
-          label="Sign Out"
-          onPress={handleSignOut}
-          destructive
-          theme={theme}
-        />
+      <SectionHeader title="" />
+      <View style={styles.section}>
+        <SettingRow icon="log-out-outline" label="Sign Out" onPress={handleSignOut} destructive />
       </View>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1 },
+  screen: { flex: 1, backgroundColor: '#ffffff' },
   content: { padding: 16, gap: 4 },
   profileCard: {
     flexDirection: 'row',
@@ -227,6 +187,8 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 16,
     borderWidth: 1,
+    borderColor: '#e5e7eb',
+    backgroundColor: '#ffffff',
     marginBottom: 20,
     gap: 14,
   },
@@ -236,11 +198,12 @@ const styles = StyleSheet.create({
     borderRadius: 26,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: Colors.primary,
   },
   avatarText: { color: Colors.white, fontSize: 22, fontWeight: '700' },
   profileInfo: { gap: 3 },
-  profileName: { fontSize: 17, fontWeight: '700' },
-  profileEmail: { fontSize: 13 },
+  profileName: { fontSize: 17, fontWeight: '700', color: '#111827' },
+  profileEmail: { fontSize: 13, color: '#6b7280' },
   sectionHeader: {
     fontSize: 11,
     fontWeight: '700',
@@ -249,17 +212,19 @@ const styles = StyleSheet.create({
     paddingLeft: 4,
     paddingTop: 12,
     paddingBottom: 6,
+    color: '#6b7280',
   },
-  section: { borderRadius: 14, borderWidth: 1, overflow: 'hidden' },
+  section: { borderRadius: 14, borderWidth: 1, borderColor: '#e5e7eb', backgroundColor: '#ffffff', overflow: 'hidden' },
   settingRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 14,
     paddingVertical: 13,
     borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#e5e7eb',
     gap: 12,
   },
   settingIcon: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   settingLabel: { flex: 1, fontSize: 15 },
-  settingValue: { fontSize: 13 },
+  settingValue: { fontSize: 13, color: '#6b7280' },
 });

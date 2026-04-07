@@ -6,7 +6,6 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
-  useColorScheme,
   ActivityIndicator,
 } from 'react-native';
 import { useUser } from '@clerk/clerk-expo';
@@ -15,7 +14,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { trpc } from '../lib/trpc';
 import { RecordingCard } from '../components/RecordingCard';
-import { getThemeColors, Colors } from '../lib/theme';
+import { Colors } from '../lib/theme';
 import type { TabParamList } from '../navigation/AppNavigator';
 
 type Nav = BottomTabNavigationProp<TabParamList>;
@@ -25,29 +24,24 @@ function StatCard({
   label,
   value,
   color,
-  isDark,
 }: {
   icon: string;
   label: string;
   value: string | number;
   color: string;
-  isDark: boolean;
 }) {
-  const theme = getThemeColors(isDark);
   return (
-    <View style={[styles.statCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+    <View style={styles.statCard}>
       <View style={[styles.statIcon, { backgroundColor: color + '20' }]}>
         <Ionicons name={icon as never} size={20} color={color} />
       </View>
-      <Text style={[styles.statValue, { color: theme.text }]}>{value}</Text>
-      <Text style={[styles.statLabel, { color: theme.textSecondary }]}>{label}</Text>
+      <Text style={styles.statValue}>{value}</Text>
+      <Text style={styles.statLabel}>{label}</Text>
     </View>
   );
 }
 
 export default function HomeScreen() {
-  const isDark = useColorScheme() === 'dark';
-  const theme = getThemeColors(isDark);
   const { user } = useUser();
   const navigation = useNavigation<Nav>();
 
@@ -74,7 +68,7 @@ export default function HomeScreen() {
 
   return (
     <ScrollView
-      style={[styles.screen, { backgroundColor: theme.background }]}
+      style={styles.screen}
       contentContainerStyle={styles.content}
       refreshControl={
         <RefreshControl refreshing={isRefetching} onRefresh={handleRefresh} tintColor={Colors.primary} />
@@ -84,16 +78,14 @@ export default function HomeScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View>
-          <Text style={[styles.greeting, { color: theme.textSecondary }]}>
-            {greeting},
-          </Text>
-          <Text style={[styles.name, { color: theme.text }]}>{firstName} 👋</Text>
+          <Text style={styles.greeting}>{greeting},</Text>
+          <Text style={styles.name}>{firstName} 👋</Text>
         </View>
         <TouchableOpacity
-          style={[styles.avatarButton, { backgroundColor: Colors.primary + '20' }]}
+          style={styles.avatarButton}
           onPress={() => navigation.navigate('Settings')}
         >
-          <Text style={[styles.avatarInitial, { color: Colors.primary }]}>
+          <Text style={styles.avatarInitial}>
             {(user?.firstName ?? 'K').charAt(0).toUpperCase()}
           </Text>
         </TouchableOpacity>
@@ -101,27 +93,9 @@ export default function HomeScreen() {
 
       {/* Stats */}
       <View style={styles.stats}>
-        <StatCard
-          icon="mic-outline"
-          label="Total recordings"
-          value={items.length}
-          color={Colors.primary}
-          isDark={isDark}
-        />
-        <StatCard
-          icon="document-text-outline"
-          label="Notes ready"
-          value={readyCount}
-          color={Colors.ready}
-          isDark={isDark}
-        />
-        <StatCard
-          icon="time-outline"
-          label="Processing"
-          value={processingCount}
-          color={Colors.pending}
-          isDark={isDark}
-        />
+        <StatCard icon="mic-outline" label="Total recordings" value={items.length} color={Colors.primary} />
+        <StatCard icon="document-text-outline" label="Notes ready" value={readyCount} color={Colors.ready} />
+        <StatCard icon="time-outline" label="Processing" value={processingCount} color={Colors.pending} />
       </View>
 
       {/* Record CTA */}
@@ -145,20 +119,18 @@ export default function HomeScreen() {
       {/* Recent Recordings */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: theme.text }]}>Recent Recordings</Text>
+          <Text style={styles.sectionTitle}>Recent Recordings</Text>
           <TouchableOpacity onPress={() => navigation.navigate('Recordings')}>
-            <Text style={[styles.seeAll, { color: Colors.primary }]}>See all</Text>
+            <Text style={styles.seeAll}>See all</Text>
           </TouchableOpacity>
         </View>
 
         {isLoading ? (
           <ActivityIndicator color={Colors.primary} style={styles.loader} />
         ) : items.length === 0 ? (
-          <View style={[styles.empty, { borderColor: theme.border }]}>
-            <Ionicons name="mic-off-outline" size={32} color={theme.textMuted} />
-            <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
-              No recordings yet. Tap "Start Recording" to begin.
-            </Text>
+          <View style={styles.empty}>
+            <Ionicons name="mic-off-outline" size={32} color="#9ca3af" />
+            <Text style={styles.emptyText}>No recordings yet. Tap "Start Recording" to begin.</Text>
           </View>
         ) : (
           items.map((recording) => (
@@ -178,50 +150,47 @@ export default function HomeScreen() {
 
       {/* Upcoming Meetings shortcut */}
       <TouchableOpacity
-        style={[styles.calendarBanner, { backgroundColor: theme.surface, borderColor: theme.border }]}
+        style={styles.calendarBanner}
         onPress={() => navigation.navigate('Calendar')}
         activeOpacity={0.8}
       >
         <Ionicons name="calendar-outline" size={20} color={Colors.primary} />
-        <Text style={[styles.calendarBannerText, { color: theme.text }]}>
-          View upcoming calendar meetings
-        </Text>
-        <Ionicons name="chevron-forward" size={16} color={theme.textSecondary} />
+        <Text style={styles.calendarBannerText}>View upcoming calendar meetings</Text>
+        <Ionicons name="chevron-forward" size={16} color="#6b7280" />
       </TouchableOpacity>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1 },
+  screen: { flex: 1, backgroundColor: '#ffffff' },
   content: { padding: 20, gap: 20, paddingBottom: 40 },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  greeting: { fontSize: 14 },
-  name: { fontSize: 24, fontWeight: '700', letterSpacing: -0.3 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  greeting: { fontSize: 14, color: '#6b7280' },
+  name: { fontSize: 24, fontWeight: '700', letterSpacing: -0.3, color: '#111827' },
   avatarButton: {
     width: 42,
     height: 42,
     borderRadius: 21,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: Colors.primary + '20',
   },
-  avatarInitial: { fontSize: 18, fontWeight: '700' },
+  avatarInitial: { fontSize: 18, fontWeight: '700', color: Colors.primary },
   stats: { flexDirection: 'row', gap: 10 },
   statCard: {
     flex: 1,
     borderRadius: 14,
     borderWidth: 1,
+    borderColor: '#e5e7eb',
+    backgroundColor: '#ffffff',
     padding: 12,
     alignItems: 'center',
     gap: 6,
   },
   statIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  statValue: { fontSize: 22, fontWeight: '700' },
-  statLabel: { fontSize: 10, textAlign: 'center' },
+  statValue: { fontSize: 22, fontWeight: '700', color: '#111827' },
+  statLabel: { fontSize: 10, textAlign: 'center', color: '#6b7280' },
   recordCTA: {
     backgroundColor: Colors.primary,
     borderRadius: 18,
@@ -244,18 +213,19 @@ const styles = StyleSheet.create({
   recordCTASubtitle: { color: 'rgba(255,255,255,0.75)', fontSize: 13 },
   section: { gap: 12 },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  sectionTitle: { fontSize: 17, fontWeight: '700' },
-  seeAll: { fontSize: 14, fontWeight: '600' },
+  sectionTitle: { fontSize: 17, fontWeight: '700', color: '#111827' },
+  seeAll: { fontSize: 14, fontWeight: '600', color: Colors.primary },
   loader: { marginTop: 20 },
   empty: {
     alignItems: 'center',
     padding: 28,
     borderRadius: 14,
     borderWidth: 1,
+    borderColor: '#e5e7eb',
     borderStyle: 'dashed',
     gap: 10,
   },
-  emptyText: { fontSize: 14, textAlign: 'center', lineHeight: 20 },
+  emptyText: { fontSize: 14, textAlign: 'center', lineHeight: 20, color: '#6b7280' },
   calendarBanner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -263,6 +233,8 @@ const styles = StyleSheet.create({
     padding: 14,
     borderRadius: 14,
     borderWidth: 1,
+    borderColor: '#e5e7eb',
+    backgroundColor: '#ffffff',
   },
-  calendarBannerText: { flex: 1, fontSize: 14, fontWeight: '500' },
+  calendarBannerText: { flex: 1, fontSize: 14, fontWeight: '500', color: '#111827' },
 });

@@ -2,7 +2,7 @@ import { enableScreens } from 'react-native-screens';
 enableScreens();
 
 import React from 'react';
-import { View, ActivityIndicator, StyleSheet, useColorScheme } from 'react-native';
+import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { ClerkProvider, useAuth } from '@clerk/clerk-expo';
 import { NavigationContainer } from '@react-navigation/native';
@@ -13,7 +13,7 @@ import { tokenCache } from './src/lib/auth';
 import { TRPCProvider } from './src/lib/trpc';
 import AppNavigator from './src/navigation/AppNavigator';
 import SignInScreen from './src/screens/SignInScreen';
-import { getThemeColors, Colors } from './src/lib/theme';
+import { Colors } from './src/lib/theme';
 
 const CLERK_PUBLISHABLE_KEY =
   (Constants.expoConfig?.extra?.clerkPublishableKey as string | undefined) ??
@@ -23,12 +23,10 @@ const CLERK_PUBLISHABLE_KEY =
 
 function RootNavigator() {
   const { isSignedIn, isLoaded } = useAuth();
-  const isDark = useColorScheme() === 'dark';
-  const theme = getThemeColors(isDark);
 
   if (!isLoaded) {
     return (
-      <View style={[styles.loading, { backgroundColor: theme.background }]}>
+      <View style={styles.loading}>
         <ActivityIndicator size="large" color={Colors.primary} />
       </View>
     );
@@ -43,33 +41,30 @@ function RootNavigator() {
 
 // ─── Navigation theme ─────────────────────────────────────────────────────────
 
+const NAV_THEME = {
+  dark: false,
+  colors: {
+    primary: Colors.primary,
+    background: '#ffffff',
+    card: '#ffffff',
+    text: '#111827',
+    border: '#e5e7eb',
+    notification: Colors.primary,
+  },
+  fonts: {
+    regular: { fontFamily: 'System', fontWeight: '400' as const },
+    medium: { fontFamily: 'System', fontWeight: '500' as const },
+    bold: { fontFamily: 'System', fontWeight: '700' as const },
+    heavy: { fontFamily: 'System', fontWeight: '900' as const },
+  },
+};
+
 function ThemedApp() {
-  const isDark = useColorScheme() === 'dark';
-  const theme = getThemeColors(isDark);
-
-  const navTheme = {
-    dark: isDark,
-    colors: {
-      primary: Colors.primary,
-      background: theme.background,
-      card: theme.background,
-      text: theme.text,
-      border: theme.border,
-      notification: Colors.primary,
-    },
-    fonts: {
-      regular: { fontFamily: 'System', fontWeight: '400' as const },
-      medium: { fontFamily: 'System', fontWeight: '500' as const },
-      bold: { fontFamily: 'System', fontWeight: '700' as const },
-      heavy: { fontFamily: 'System', fontWeight: '900' as const },
-    },
-  };
-
   return (
-    <NavigationContainer theme={navTheme}>
+    <NavigationContainer theme={NAV_THEME}>
       <TRPCProvider>
         <RootNavigator />
-        <StatusBar style={isDark ? 'light' : 'dark'} />
+        <StatusBar style="dark" />
       </TRPCProvider>
     </NavigationContainer>
   );
@@ -92,5 +87,6 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#ffffff',
   },
 });
