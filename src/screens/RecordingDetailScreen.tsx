@@ -210,37 +210,87 @@ export default function RecordingDetailScreen() {
   const [transcriptPage, setTranscriptPage] = useState(0);
 
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Keep getToken in a ref so it never triggers useEffect/useCallback re-runs
+  const getTokenRef = useRef(getToken);
+  useEffect(() => { getTokenRef.current = getToken; });
 
   const isProcessing = (status: string) => PROCESSING_STATUSES.includes(status);
+
+  // loadRef breaks the self-referential dependency for polling
+  const loadRef = useRef<(silent?: boolean) => Promise<void>>();
 
   const load = useCallback(async (silent = false) => {
     if (!silent) setIsLoading(true);
     setError(null);
+
+    // 10-second timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      controller.abort();
+      console.error('[RecordingDetail] request timed out after 10s');
+    }, 10_000);
+
     try {
-      const token = await getToken();
-      const data = await trpcGet<Recording>('recordings.get', { id }, token);
+      const token = await getTokenRef.current();
+      console.log('[RecordingDetail] fetching id:', id, '| token present:', !!token);
+
+      const inputParam = encodeURIComponent(JSON.stringify({ '0': { json: { id } } }));
+      const url = `${API}/recordings.get?batch=1&input=${inputParam}`;
+      console.log('[RecordingDetail] GET', url);
+
+      const res = await fetch(url, {
+        signal: controller.signal,
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+
+      const raw = await res.json();
+      console.log('[RecordingDetail] raw response:', JSON.stringify(raw, null, 2));
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}: ${JSON.stringify(raw)}`);
+      }
+
+      const item = Array.isArray(raw) ? raw[0] : raw;
+      if (item?.error) {
+        throw new Error(item.error.message ?? `tRPC error: ${JSON.stringify(item.error)}`);
+      }
+
+      const data: Recording = item?.result?.data?.json ?? item?.result?.data;
+      if (!data) {
+        throw new Error(`Unexpected response shape: ${JSON.stringify(raw)}`);
+      }
+
+      console.log('[RecordingDetail] note present:', !!data.note, '| status:', data.status);
       setRecording(data);
 
-      // Auto-poll while processing
-      if (data && isProcessing(data.status)) {
-        pollRef.current = setTimeout(() => void load(true), 5000);
+      if (isProcessing(data.status)) {
+        pollRef.current = setTimeout(() => void loadRef.current?.(true), 5000);
       }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Failed to load recording';
+    } catch (err: unknown) {
+      const isAbort = (err as { name?: string })?.name === 'AbortError';
+      const msg = isAbort
+        ? 'Request timed out. Check your internet connection.'
+        : err instanceof Error ? err.message : String(err);
+      console.error('[RecordingDetail] error:', msg, err);
       setError(msg);
-      console.error('[RecordingDetail] load error:', err);
     } finally {
+      clearTimeout(timeoutId);
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, [id, getToken]);
+  }, [id]); // id is the only real dependency — getToken via ref
+
+  loadRef.current = load;
 
   useEffect(() => {
     void load();
     return () => {
       if (pollRef.current) clearTimeout(pollRef.current);
     };
-  }, [load]);
+  }, [load]); // load is stable because id never changes for this screen instance
 
   const handleRefresh = () => {
     if (pollRef.current) clearTimeout(pollRef.current);
@@ -250,14 +300,14 @@ export default function RecordingDetailScreen() {
 
   const handleToggleAction = useCallback(async (actionId: string, completed: boolean) => {
     try {
-      const token = await getToken();
+      const token = await getTokenRef.current();
       await trpcPost('recordings.updateActionItem', { id: actionId, status: completed ? 'COMPLETED' : 'OPEN' }, token);
-      void load(true);
+      void loadRef.current?.(true);
     } catch (err) {
       Alert.alert('Error', 'Could not update action item.');
-      console.error(err);
+      console.error('[RecordingDetail] toggle action error:', err);
     }
-  }, [getToken, load]);
+  }, []); // no deps — uses refs
 
   const handleShare = useCallback(async () => {
     if (!recording?.note) return;
@@ -291,8 +341,9 @@ export default function RecordingDetailScreen() {
   if (error || !recording) {
     return (
       <View style={styles.centered}>
-        <Ionicons name="alert-circle-outline" size={40} color="#6b7280" />
-        <Text style={styles.errorText}>{error ?? 'Recording not found'}</Text>
+        <Ionicons name="alert-circle-outline" size={40} color="#EF4444" />
+        <Text style={styles.errorTitle}>Failed to load recording</Text>
+        <Text style={styles.errorText}>{error ?? 'Unknown error'}</Text>
         <TouchableOpacity onPress={() => void load()} style={styles.retryBtn}>
           <Text style={styles.retryText}>Retry</Text>
         </TouchableOpacity>
@@ -452,7 +503,8 @@ export default function RecordingDetailScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#ffffff' },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, padding: 24 },
-  errorText: { fontSize: 16, color: '#6b7280', textAlign: 'center' },
+  errorTitle: { fontSize: 16, fontWeight: '700', color: '#111827', textAlign: 'center' },
+  errorText: { fontSize: 13, color: '#6b7280', textAlign: 'center', lineHeight: 18, paddingHorizontal: 16 },
   retryBtn: { paddingVertical: 8, paddingHorizontal: 20, backgroundColor: '#5B8DEF', borderRadius: 10 },
   retryText: { color: '#ffffff', fontWeight: '600', fontSize: 14 },
   backLink: { marginTop: 4 },
