@@ -264,12 +264,19 @@ export default function RecordingDetailScreen() {
       console.log('item.result.data:', JSON.stringify(item?.result?.data, null, 2));
       console.log('item.result.data.json:', JSON.stringify(item?.result?.data?.json, null, 2));
 
-      const data: Recording = item?.result?.data?.json ?? item?.result?.data;
-      if (!data) {
+      const rawData = item?.result?.data?.json ?? item?.result?.data;
+      if (!rawData) {
         throw new Error(`Unexpected response shape: ${JSON.stringify(raw)}`);
       }
 
-      console.log('NOTE DATA:', JSON.stringify(data?.note, null, 2));
+      // Server returns notes[] (plural array, take:1). Normalise to singular note
+      // so the rest of the UI can use recording.note consistently.
+      const data: Recording = {
+        ...rawData,
+        note: rawData.note ?? rawData.notes?.[0] ?? null,
+      };
+
+      console.log('NOTE DATA:', JSON.stringify(data.note, null, 2));
       console.log('[RecordingDetail] note present:', !!data.note, '| status:', data.status);
       setRecording(data);
 

@@ -30,7 +30,8 @@ export interface Recording {
   createdAt: Date;
   updatedAt: Date;
   transcript?: Transcript | null;
-  note?: Note | null;
+  note?: Note | null;      // normalised by client from notes[0]
+  notes?: Note[];          // raw server field (array, take:1)
 }
 
 export interface Transcript {
