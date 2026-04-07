@@ -247,7 +247,7 @@ export default function RecordingDetailScreen() {
       });
 
       const raw = await res.json();
-      console.log('[RecordingDetail] raw response:', JSON.stringify(raw, null, 2));
+      console.log('FULL API RESPONSE:', JSON.stringify(raw, null, 2));
 
       if (!res.ok) {
         throw new Error(`HTTP ${res.status}: ${JSON.stringify(raw)}`);
@@ -258,11 +258,18 @@ export default function RecordingDetailScreen() {
         throw new Error(item.error.message ?? `tRPC error: ${JSON.stringify(item.error)}`);
       }
 
+      // Log every level of nesting so we can see exactly where note lives
+      console.log('item:', JSON.stringify(item, null, 2));
+      console.log('item.result:', JSON.stringify(item?.result, null, 2));
+      console.log('item.result.data:', JSON.stringify(item?.result?.data, null, 2));
+      console.log('item.result.data.json:', JSON.stringify(item?.result?.data?.json, null, 2));
+
       const data: Recording = item?.result?.data?.json ?? item?.result?.data;
       if (!data) {
         throw new Error(`Unexpected response shape: ${JSON.stringify(raw)}`);
       }
 
+      console.log('NOTE DATA:', JSON.stringify(data?.note, null, 2));
       console.log('[RecordingDetail] note present:', !!data.note, '| status:', data.status);
       setRecording(data);
 
