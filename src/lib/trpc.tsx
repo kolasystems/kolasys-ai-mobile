@@ -59,13 +59,17 @@ export interface SpeakerLabel {
 export interface Note {
   id: string;
   summary: string;
+  keyPoints?: string[];
+  decisions?: string[];
+  nextSteps?: string[];
   sections: NoteSection[];
   actionItems: ActionItem[];
 }
 
 export interface NoteSection {
   id: string;
-  title: string;
+  heading?: string; // API field name
+  title?: string;   // fallback
   content: string;
   order: number;
 }

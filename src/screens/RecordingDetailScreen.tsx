@@ -15,7 +15,7 @@ import { useRoute, useNavigation } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { trpc } from '../lib/trpc';
-import type { Recording, NoteSection, ActionItem, TranscriptSegment } from '../lib/trpc';
+import type { Recording, Note, NoteSection, ActionItem, TranscriptSegment } from '../lib/trpc';
 import { StatusBadge } from '../components/StatusBadge';
 import { ActionItemRow } from '../components/ActionItemRow';
 import { TranscriptSegmentRow } from '../components/TranscriptSegment';
@@ -44,6 +44,124 @@ function formatDate(date: Date): string {
 
 const PAGE_SIZE = 30;
 
+// ─── Notes tab ────────────────────────────────────────────────────────────────
+
+function BulletList({ items }: { items: string[] }) {
+  if (!items?.length) return null;
+  return (
+    <View style={{ gap: 6 }}>
+      {items.map((item, i) => (
+        <View key={i} style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-start' }}>
+          <Text style={{ color: '#5B8DEF', marginTop: 3, fontSize: 12 }}>●</Text>
+          <Text style={{ flex: 1, fontSize: 14, lineHeight: 21, color: '#374151' }}>{item}</Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function NotesSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <View style={{ gap: 8 }}>
+      <Text style={notesStyles.sectionHeading}>{title}</Text>
+      {children}
+    </View>
+  );
+}
+
+function NotesTab({ note }: { note: Note | null }) {
+  if (!note) {
+    return (
+      <View style={[notesStyles.tabContent, { alignItems: 'center', paddingTop: 40, gap: 10 }]}>
+        <Ionicons name="document-text-outline" size={36} color="#9ca3af" />
+        <Text style={{ fontSize: 15, fontWeight: '600', color: '#374151' }}>Notes not yet available</Text>
+        <Text style={{ fontSize: 13, color: '#6b7280', textAlign: 'center', lineHeight: 20 }}>
+          Notes are generated after transcription completes.{'\n'}Pull down to refresh.
+        </Text>
+      </View>
+    );
+  }
+
+  const hasKeyPoints = !!note.keyPoints?.length;
+  const hasDecisions = !!note.decisions?.length;
+  const hasNextSteps = !!note.nextSteps?.length;
+  const hasSections = !!note.sections?.length;
+  const hasAnything = note.summary || hasKeyPoints || hasDecisions || hasNextSteps || hasSections;
+
+  if (!hasAnything) {
+    return (
+      <View style={[notesStyles.tabContent, { alignItems: 'center', paddingTop: 40 }]}>
+        <Text style={{ fontSize: 14, color: '#6b7280' }}>No note content found.</Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={notesStyles.tabContent}>
+      {/* Summary */}
+      {!!note.summary && (
+        <View style={notesStyles.summaryCard}>
+          <Text style={notesStyles.summaryLabel}>Summary</Text>
+          <Text style={notesStyles.summaryText}>{note.summary}</Text>
+        </View>
+      )}
+
+      {/* Key Points */}
+      {hasKeyPoints && (
+        <NotesSection title="Key Points">
+          <BulletList items={note.keyPoints!} />
+        </NotesSection>
+      )}
+
+      {/* Decisions */}
+      {hasDecisions && (
+        <NotesSection title="Decisions">
+          <BulletList items={note.decisions!} />
+        </NotesSection>
+      )}
+
+      {/* Next Steps */}
+      {hasNextSteps && (
+        <NotesSection title="Next Steps">
+          <BulletList items={note.nextSteps!} />
+        </NotesSection>
+      )}
+
+      {/* Custom sections — handle both `heading` and `title` field names */}
+      {hasSections && note.sections.map((section: NoteSection) => {
+        const sectionTitle = section.heading ?? section.title ?? '';
+        return (
+          <NotesSection key={section.id} title={sectionTitle}>
+            <Text style={notesStyles.sectionContent}>{section.content}</Text>
+          </NotesSection>
+        );
+      })}
+    </View>
+  );
+}
+
+const notesStyles = StyleSheet.create({
+  tabContent: { padding: 20, gap: 20 },
+  summaryCard: {
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#5B8DEF30',
+    backgroundColor: '#5B8DEF0D',
+    gap: 6,
+  },
+  summaryLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    color: '#5B8DEF',
+  },
+  summaryText: { fontSize: 14, lineHeight: 21, color: '#111827' },
+  sectionHeading: { fontSize: 15, fontWeight: '700', color: '#111827' },
+  sectionContent: { fontSize: 14, lineHeight: 21, color: '#6b7280' },
+});
+
 export default function RecordingDetailScreen() {
   const route = useRoute<RouteT>();
   const navigation = useNavigation<NavT>();
@@ -57,10 +175,15 @@ export default function RecordingDetailScreen() {
   const { data: recording, isLoading, refetch, isRefetching } = trpc.recordings.get.useQuery(
     { id },
     {
-      refetchInterval: (data: Recording | null | undefined) =>
-        data && isProcessing(data.status) ? 5000 : false,
+      refetchInterval: (query: unknown) => {
+        const data = (query as any)?.state?.data as Recording | null | undefined;
+        return data && isProcessing(data.status) ? 5000 : false;
+      },
     },
   );
+
+  // Debug: log full API response to help diagnose missing note fields
+  console.log('[RecordingDetail] recording:', JSON.stringify(recording, null, 2));
 
   const updateActionItem = trpc.recordings.updateActionItem.useMutation({
     onSuccess: () => { void refetch(); },
@@ -77,8 +200,18 @@ export default function RecordingDetailScreen() {
     if (!recording?.note) return;
     const note = recording.note;
     const lines: string[] = [`# ${recording.title}`, formatDate(recording.createdAt), '', '## Summary', note.summary, ''];
+    if (note.keyPoints?.length) {
+      lines.push('## Key Points', ...note.keyPoints.map((p) => `- ${p}`), '');
+    }
+    if (note.decisions?.length) {
+      lines.push('## Decisions', ...note.decisions.map((d) => `- ${d}`), '');
+    }
+    if (note.nextSteps?.length) {
+      lines.push('## Next Steps', ...note.nextSteps.map((s) => `- ${s}`), '');
+    }
     note.sections?.forEach((s: NoteSection) => {
-      lines.push(`## ${s.title}`, s.content, '');
+      const heading = s.heading ?? s.title ?? '';
+      lines.push(`## ${heading}`, s.content, '');
     });
     if (note.actionItems?.length) {
       lines.push('## Action Items');
@@ -196,19 +329,8 @@ export default function RecordingDetailScreen() {
               ))}
             </View>
 
-            {activeTab === 'notes' && recording.note && (
-              <View style={styles.tabContent}>
-                <View style={styles.summaryCard}>
-                  <Text style={styles.summaryLabel}>Summary</Text>
-                  <Text style={styles.summaryText}>{recording.note.summary}</Text>
-                </View>
-                {recording.note.sections?.map((section: NoteSection) => (
-                  <View key={section.id} style={styles.section}>
-                    <Text style={styles.sectionTitle}>{section.title}</Text>
-                    <Text style={styles.sectionContent}>{section.content}</Text>
-                  </View>
-                ))}
-              </View>
+            {activeTab === 'notes' && (
+              <NotesTab note={recording.note ?? null} />
             )}
 
             {activeTab === 'transcript' && (
@@ -310,25 +432,6 @@ const styles = StyleSheet.create({
   tabActive: { borderBottomWidth: 2, borderBottomColor: '#5B8DEF' },
   tabText: { fontSize: 14, fontWeight: '600' },
   tabContent: { padding: 20, gap: 16 },
-  summaryCard: {
-    padding: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#5B8DEF30',
-    backgroundColor: '#5B8DEF12',
-    gap: 6,
-  },
-  summaryLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    color: '#5B8DEF',
-  },
-  summaryText: { fontSize: 14, lineHeight: 21, color: '#111827' },
-  section: { gap: 6 },
-  sectionTitle: { fontSize: 15, fontWeight: '700', color: '#111827' },
-  sectionContent: { fontSize: 14, lineHeight: 21, color: '#6b7280' },
   emptyTab: { textAlign: 'center', paddingTop: 20, fontSize: 14, color: '#6b7280' },
   pagination: {
     flexDirection: 'row',
