@@ -1,0 +1,57 @@
+import { Appearance } from 'react-native';
+
+export const Colors = {
+  primary: '#5B8DEF',
+  primaryDark: '#4070D4',
+  primaryLight: '#7AAAF5',
+  dark: '#1A1A2E',
+  darkSecondary: '#16213E',
+  darkTertiary: '#0F3460',
+
+  // Status colors
+  pending: '#F59E0B',
+  processing: '#5B8DEF',
+  ready: '#10B981',
+  failed: '#EF4444',
+
+  // Priority colors
+  low: '#6B7280',
+  medium: '#F59E0B',
+  high: '#EF4444',
+  urgent: '#DC2626',
+
+  // Neutral
+  white: '#FFFFFF',
+  black: '#000000',
+  gray50: '#F9FAFB',
+  gray100: '#F3F4F6',
+  gray200: '#E5E7EB',
+  gray300: '#D1D5DB',
+  gray400: '#9CA3AF',
+  gray500: '#6B7280',
+  gray600: '#4B5563',
+  gray700: '#374151',
+  gray800: '#1F2937',
+  gray900: '#111827',
+} as const;
+
+export function getThemeColors(isDark: boolean) {
+  return {
+    background: isDark ? Colors.dark : Colors.white,
+    backgroundSecondary: isDark ? Colors.darkSecondary : Colors.gray50,
+    backgroundTertiary: isDark ? Colors.darkTertiary : Colors.gray100,
+    surface: isDark ? '#1E2040' : Colors.white,
+    border: isDark ? '#2A2D4E' : Colors.gray200,
+    text: isDark ? Colors.white : Colors.gray900,
+    textSecondary: isDark ? Colors.gray400 : Colors.gray500,
+    textMuted: isDark ? Colors.gray600 : Colors.gray400,
+    primary: Colors.primary,
+    tabBar: isDark ? '#151525' : Colors.white,
+    tabBarBorder: isDark ? '#2A2D4E' : Colors.gray200,
+  };
+}
+
+export function useColorScheme() {
+  const scheme = Appearance.getColorScheme();
+  return scheme === 'dark';
+}

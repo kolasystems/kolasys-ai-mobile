@@ -1,0 +1,495 @@
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  TextInput,
+  Alert,
+  Platform,
+  ActivityIndicator,
+  useColorScheme,
+  KeyboardAvoidingView,
+  ScrollView,
+} from 'react-native';
+import { Audio } from 'expo-av';
+import * as Haptics from 'expo-haptics';
+import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import { useRecordingStore } from '../store/recording.store';
+import { WaveformVisualizer } from '../components/WaveformVisualizer';
+import { trpc } from '../lib/trpc';
+import { getThemeColors, Colors } from '../lib/theme';
+
+function formatTime(seconds: number): string {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = Math.floor(seconds % 60);
+  if (h > 0)
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
+const HIGH_QUALITY_OPTIONS: Audio.RecordingOptions = {
+  android: {
+    extension: '.m4a',
+    outputFormat: Audio.AndroidOutputFormat.MPEG_4,
+    audioEncoder: Audio.AndroidAudioEncoder.AAC,
+    sampleRate: 44100,
+    numberOfChannels: 2,
+    bitRate: 128000,
+  },
+  ios: {
+    extension: '.m4a',
+    audioQuality: Audio.IOSAudioQuality.MAX,
+    sampleRate: 44100,
+    numberOfChannels: 2,
+    bitRate: 128000,
+    linearPCMBitDepth: 16,
+    linearPCMIsBigEndian: false,
+    linearPCMIsFloat: false,
+  },
+  web: {
+    mimeType: 'audio/webm',
+    bitsPerSecond: 128000,
+  },
+};
+
+export default function RecordScreen() {
+  const isDark = useColorScheme() === 'dark';
+  const theme = getThemeColors(isDark);
+  const insets = useSafeAreaInsets();
+  const navigation = useNavigation();
+
+  const {
+    state,
+    recording,
+    recordingUri,
+    elapsedSeconds,
+    meteringLevel,
+    uploadProgress,
+    pendingTitle,
+    setState,
+    setRecording,
+    setRecordingUri,
+    setElapsedSeconds,
+    setMeteringLevel,
+    setUploadProgress,
+    setPendingTitle,
+    reset,
+  } = useRecordingStore();
+
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const meteringRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // tRPC mutations
+  const createRecording = trpc.recordings.create.useMutation();
+  const getUploadUrl = trpc.recordings.getUploadUrl.useMutation();
+  const confirmUpload = trpc.recordings.confirmUpload.useMutation();
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+      if (meteringRef.current) clearInterval(meteringRef.current);
+    };
+  }, []);
+
+  const requestPermissions = async (): Promise<boolean> => {
+    const { status } = await Audio.requestPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert(
+        'Microphone Required',
+        'Kolasys AI needs microphone access to record meetings. Please enable it in Settings.',
+        [{ text: 'OK' }]
+      );
+      return false;
+    }
+    return true;
+  };
+
+  const startRecording = async () => {
+    const permitted = await requestPermissions();
+    if (!permitted) return;
+
+    try {
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: true,
+        interruptionModeIOS: 1,
+        interruptionModeAndroid: 1,
+        shouldDuckAndroid: false,
+        playThroughEarpieceAndroid: false,
+      });
+
+      const { recording: rec } = await Audio.Recording.createAsync(
+        HIGH_QUALITY_OPTIONS,
+        (status) => {
+          if (status.isRecording && status.metering !== undefined) {
+            // metering is in dB (-160 to 0), normalize to 0-1
+            const normalised = Math.max(0, Math.min(1, (status.metering + 80) / 80));
+            setMeteringLevel(normalised);
+          }
+        },
+        100
+      );
+
+      setRecording(rec);
+      setState('recording');
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+      // Timer
+      timerRef.current = setInterval(() => {
+        setElapsedSeconds(useRecordingStore.getState().elapsedSeconds + 1);
+      }, 1000);
+    } catch (err) {
+      Alert.alert('Error', 'Failed to start recording. Please try again.');
+      console.error('Start recording error:', err);
+    }
+  };
+
+  const pauseRecording = async () => {
+    if (!recording) return;
+    await recording.pauseAsync();
+    setState('paused');
+    if (timerRef.current) clearInterval(timerRef.current);
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const resumeRecording = async () => {
+    if (!recording) return;
+    await recording.startAsync();
+    setState('recording');
+    timerRef.current = setInterval(() => {
+      setElapsedSeconds(useRecordingStore.getState().elapsedSeconds + 1);
+    }, 1000);
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const stopRecording = async () => {
+    if (!recording) return;
+    if (timerRef.current) clearInterval(timerRef.current);
+
+    try {
+      await recording.stopAndUnloadAsync();
+      const uri = recording.getURI();
+      setRecording(null);
+      setRecordingUri(uri);
+      setState('processing');
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+      await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
+    } catch (err) {
+      Alert.alert('Error', 'Failed to stop recording.');
+      console.error('Stop recording error:', err);
+    }
+  };
+
+  const uploadRecording = useCallback(async () => {
+    if (!recordingUri) return;
+
+    const title = pendingTitle.trim() || `Meeting — ${new Date().toLocaleDateString()}`;
+    setState('uploading');
+
+    try {
+      // 1. Create recording record
+      const rec = await createRecording.mutateAsync({ title, source: 'UPLOAD' });
+
+      // 2. Get pre-signed upload URL
+      const { url, key } = await getUploadUrl.mutateAsync({
+        recordingId: rec.id,
+        contentType: 'audio/m4a',
+        extension: 'm4a',
+      });
+
+      // 3. Read the file and upload directly to S3
+      const fileInfo = await fetch(recordingUri);
+      const blob = await fileInfo.blob();
+      const fileSize = blob.size;
+
+      setUploadProgress(0.1);
+
+      await fetch(url, {
+        method: 'PUT',
+        body: blob,
+        headers: { 'Content-Type': 'audio/m4a' },
+      });
+
+      setUploadProgress(0.8);
+
+      // 4. Confirm upload and enqueue processing
+      await confirmUpload.mutateAsync({
+        recordingId: rec.id,
+        fileSize,
+        mimeType: 'audio/m4a',
+        duration: elapsedSeconds,
+      });
+
+      setUploadProgress(1.0);
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+      Alert.alert(
+        'Recording Uploaded!',
+        'Your meeting is being transcribed and summarized. You\'ll be notified when notes are ready.',
+        [
+          {
+            text: 'View Recording',
+            onPress: () => {
+              reset();
+              (navigation as never as { navigate: (name: string, params: object) => void }).navigate('RecordingDetail', { id: rec.id });
+            },
+          },
+          { text: 'Done', onPress: reset },
+        ]
+      );
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Upload failed. Please try again.';
+      Alert.alert('Upload Error', message);
+      setState('processing');
+    }
+  }, [recordingUri, pendingTitle, elapsedSeconds]);
+
+  const handleDiscard = () => {
+    Alert.alert('Discard Recording?', 'This recording will be lost.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Discard',
+        style: 'destructive',
+        onPress: async () => {
+          if (recording) {
+            try { await recording.stopAndUnloadAsync(); } catch { /* ignore */ }
+          }
+          reset();
+        },
+      },
+    ]);
+  };
+
+  const isActive = state === 'recording' || state === 'paused';
+
+  return (
+    <KeyboardAvoidingView
+      style={[styles.screen, { backgroundColor: theme.background }]}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <ScrollView
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20 }]}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Consent notice */}
+        <View style={[styles.consentBanner, { backgroundColor: theme.backgroundSecondary, borderColor: theme.border }]}>
+          <Ionicons name="information-circle-outline" size={16} color={theme.textSecondary} />
+          <Text style={[styles.consentText, { color: theme.textSecondary }]}>
+            All participants must consent to being recorded.
+          </Text>
+        </View>
+
+        {/* State: idle */}
+        {state === 'idle' && (
+          <View style={styles.idleContainer}>
+            <View style={[styles.idleCircle, { backgroundColor: Colors.primary + '15' }]}>
+              <Ionicons name="mic-outline" size={60} color={Colors.primary} />
+            </View>
+            <Text style={[styles.idleTitle, { color: theme.text }]}>Ready to Record</Text>
+            <Text style={[styles.idleSubtitle, { color: theme.textSecondary }]}>
+              Tap the button below to start capturing your meeting
+            </Text>
+            <TouchableOpacity style={styles.startButton} onPress={startRecording} activeOpacity={0.85}>
+              <Ionicons name="mic" size={28} color={Colors.white} />
+              <Text style={styles.startButtonText}>Start Recording</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* State: recording / paused */}
+        {isActive && (
+          <View style={styles.recordingContainer}>
+            {/* Timer */}
+            <Text style={[styles.timer, { color: theme.text }]}>{formatTime(elapsedSeconds)}</Text>
+            <Text style={[styles.recordingStatus, { color: state === 'paused' ? Colors.pending : Colors.failed }]}>
+              {state === 'paused' ? '⏸ Paused' : '● Recording'}
+            </Text>
+
+            {/* Waveform */}
+            <WaveformVisualizer
+              isRecording={state === 'recording'}
+              meteringLevel={meteringLevel}
+            />
+
+            {/* Controls */}
+            <View style={styles.controls}>
+              <TouchableOpacity style={[styles.controlButton, { borderColor: theme.border }]} onPress={handleDiscard}>
+                <Ionicons name="trash-outline" size={22} color={Colors.failed} />
+                <Text style={[styles.controlLabel, { color: Colors.failed }]}>Discard</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.stopButton]}
+                onPress={stopRecording}
+                activeOpacity={0.85}
+              >
+                <View style={styles.stopSquare} />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.controlButton, { borderColor: theme.border }]}
+                onPress={state === 'recording' ? pauseRecording : resumeRecording}
+              >
+                <Ionicons
+                  name={state === 'recording' ? 'pause' : 'play'}
+                  size={22}
+                  color={theme.text}
+                />
+                <Text style={[styles.controlLabel, { color: theme.text }]}>
+                  {state === 'recording' ? 'Pause' : 'Resume'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        {/* State: processing (stopped, awaiting title + upload) */}
+        {state === 'processing' && (
+          <View style={styles.processingContainer}>
+            <View style={[styles.doneIcon, { backgroundColor: Colors.ready + '20' }]}>
+              <Ionicons name="checkmark-circle" size={48} color={Colors.ready} />
+            </View>
+            <Text style={[styles.processingTitle, { color: theme.text }]}>Recording Complete</Text>
+            <Text style={[styles.processingDuration, { color: theme.textSecondary }]}>
+              {formatTime(elapsedSeconds)} recorded
+            </Text>
+
+            <View style={[styles.titleInput, { borderColor: theme.border, backgroundColor: theme.backgroundSecondary }]}>
+              <TextInput
+                style={[styles.titleTextInput, { color: theme.text }]}
+                placeholder={`Meeting — ${new Date().toLocaleDateString()}`}
+                placeholderTextColor={theme.textSecondary}
+                value={pendingTitle}
+                onChangeText={setPendingTitle}
+                autoFocus
+                returnKeyType="done"
+              />
+            </View>
+
+            <TouchableOpacity style={styles.uploadButton} onPress={uploadRecording} activeOpacity={0.85}>
+              <Ionicons name="cloud-upload-outline" size={20} color={Colors.white} />
+              <Text style={styles.uploadButtonText}>Process Recording</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={handleDiscard} style={styles.discardLink}>
+              <Text style={[styles.discardLinkText, { color: Colors.failed }]}>Discard</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* State: uploading */}
+        {state === 'uploading' && (
+          <View style={styles.uploadingContainer}>
+            <ActivityIndicator size="large" color={Colors.primary} />
+            <Text style={[styles.uploadingTitle, { color: theme.text }]}>Uploading…</Text>
+            <View style={[styles.progressBar, { backgroundColor: theme.border }]}>
+              <View style={[styles.progressFill, { width: `${uploadProgress * 100}%` }]} />
+            </View>
+            <Text style={[styles.uploadingSubtitle, { color: theme.textSecondary }]}>
+              {Math.round(uploadProgress * 100)}% — Do not close the app
+            </Text>
+          </View>
+        )}
+      </ScrollView>
+    </KeyboardAvoidingView>
+  );
+}
+
+const styles = StyleSheet.create({
+  screen: { flex: 1 },
+  content: { padding: 24, flexGrow: 1, gap: 20 },
+  consentBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  consentText: { flex: 1, fontSize: 12, lineHeight: 16 },
+
+  // Idle
+  idleContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16, paddingVertical: 40 },
+  idleCircle: { width: 140, height: 140, borderRadius: 70, alignItems: 'center', justifyContent: 'center' },
+  idleTitle: { fontSize: 26, fontWeight: '700' },
+  idleSubtitle: { fontSize: 15, textAlign: 'center', maxWidth: 260, lineHeight: 22 },
+  startButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 32,
+    paddingVertical: 16,
+    borderRadius: 50,
+    gap: 10,
+    marginTop: 8,
+  },
+  startButtonText: { color: Colors.white, fontSize: 18, fontWeight: '700' },
+
+  // Recording
+  recordingContainer: { flex: 1, alignItems: 'center', gap: 12, paddingVertical: 20 },
+  timer: { fontSize: 56, fontWeight: '200', letterSpacing: 2, fontVariant: ['tabular-nums'] },
+  recordingStatus: { fontSize: 14, fontWeight: '600' },
+  controls: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 24, marginTop: 16 },
+  controlButton: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  controlLabel: { fontSize: 10, fontWeight: '600' },
+  stopButton: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: Colors.failed,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stopSquare: { width: 26, height: 26, borderRadius: 4, backgroundColor: Colors.white },
+
+  // Processing
+  processingContainer: { flex: 1, alignItems: 'center', gap: 14, paddingVertical: 20 },
+  doneIcon: { width: 90, height: 90, borderRadius: 45, alignItems: 'center', justifyContent: 'center' },
+  processingTitle: { fontSize: 24, fontWeight: '700' },
+  processingDuration: { fontSize: 15 },
+  titleInput: {
+    width: '100%',
+    borderRadius: 12,
+    borderWidth: 1.5,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  titleTextInput: { fontSize: 15 },
+  uploadButton: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.primary,
+    paddingVertical: 16,
+    borderRadius: 14,
+    gap: 8,
+    marginTop: 4,
+  },
+  uploadButtonText: { color: Colors.white, fontSize: 16, fontWeight: '700' },
+  discardLink: { padding: 8 },
+  discardLinkText: { fontSize: 14, fontWeight: '500' },
+
+  // Uploading
+  uploadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16 },
+  uploadingTitle: { fontSize: 20, fontWeight: '700' },
+  progressBar: { width: '80%', height: 6, borderRadius: 3, overflow: 'hidden' },
+  progressFill: { height: '100%', borderRadius: 3, backgroundColor: Colors.primary },
+  uploadingSubtitle: { fontSize: 13 },
+});

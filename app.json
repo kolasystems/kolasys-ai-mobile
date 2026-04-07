@@ -1,30 +1,73 @@
 {
   "expo": {
-    "name": "kolasys-mobile",
-    "slug": "kolasys-mobile",
+    "name": "Kolasys AI",
+    "slug": "kolasys-ai",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#1A1A2E"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": false,
+      "bundleIdentifier": "com.kolasystems.kolasysai",
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "Kolasys AI needs microphone access to record meetings.",
+        "NSCalendarsUsageDescription": "Kolasys AI uses your calendar to show upcoming meetings.",
+        "NSCalendarsFullAccessUsageDescription": "Kolasys AI uses your calendar to show upcoming meetings.",
+        "UIBackgroundModes": ["audio", "fetch", "remote-notification"]
+      }
     },
     "android": {
+      "package": "com.kolasystems.kolasysai",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#1A1A2E"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "permissions": [
+        "RECORD_AUDIO",
+        "READ_CALENDAR",
+        "WRITE_CALENDAR",
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE",
+        "POST_NOTIFICATIONS"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-secure-store",
+      "expo-web-browser",
+      [
+        "expo-av",
+        {
+          "microphonePermission": "Kolasys AI needs microphone access to record meetings."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#5B8DEF",
+          "sounds": []
+        }
+      ],
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "Kolasys AI uses your calendar to show upcoming meetings."
+        }
+      ]
+    ],
+    "scheme": "kolasys-ai",
+    "extra": {
+      "clerkPublishableKey": "pk_test_cG9zc2libGUtdHJvbGwtMTUuY2xlcmsuYWNjb3VudHMuZGV2JA"
     }
   }
 }
