@@ -1,5 +1,14 @@
 # Kolasys AI Mobile — Progress
 
+**Last updated: April 7, 2026**
+
+## Project Overview
+
+React Native / Expo SDK 54 mobile client for [app.kolasys.ai](https://app.kolasys.ai).
+Repo: [github.com/kolasystems/kolasys-ai-mobile](https://github.com/kolasystems/kolasys-ai-mobile)
+
+---
+
 ## What's Built and Working
 
 ### Authentication
@@ -14,11 +23,11 @@
 - [x] Native stack navigator for Recordings → RecordingDetail
 - [x] React Navigation v7 with New Architecture compatibility
 
-### Home Screen
-- [x] Greeting with Clerk user's first name
-- [x] 3 stat cards: total recordings, notes this week, open actions
-- [x] Recent recordings list using `RecordingCard` component
-- [x] "New Recording" shortcut button → Record tab
+### Home Screen — 3 internal tabs
+- [x] **My Feed tab**: recordings grouped by this week / last week / older; status badges; notes-ready indicator
+- [x] **Tasks tab**: recordings with notes listed as collapsible sections; lazy-loads action items on expand; checkbox toggle with API update
+- [x] **Calendar tab**: expo-calendar device events for today + next 7 days; platform icon detection (Zoom / Meet / Teams); per-meeting bot-record toggle
+- [x] "Record" shortcut button in header → Record tab
 - [x] Pull-to-refresh
 
 ### Record Screen
@@ -31,6 +40,7 @@
 - [x] Upload & Process button (multipart/form-data POST with auth)
 - [x] Discard recording with confirmation
 - [x] Consent notice text
+- [x] Simulator detection (no microphone on simulator — shows friendly message)
 
 ### Recordings Screen
 - [x] Searchable list of all recordings
@@ -46,10 +56,20 @@
 - [x] Auto-polling while processing (every 5 seconds)
 - [x] Processing banner with contextual message (Transcribing / Generating notes / Processing)
 - [x] Failed banner
-- [x] Share button (exports notes as Markdown)
-- [x] **Notes tab**: summary card + structured sections
-- [x] **Transcript tab**: paginated segments with speaker labels and timestamps
+- [x] **Notes tab**: summary card + structured sections + key points / decisions / next steps
+- [x] **Transcript tab**:
+  - Static waveform visualization (50-bar waveform placeholder)
+  - Disabled audio player UI (Play/Pause, −15s, +15s; tapping explains audio was deleted post-transcription)
+  - Topic outline: auto-detected sections from transcript timestamps (tap to jump to page)
+  - Paginated segments with speaker labels and timestamps
 - [x] **Actions tab**: checkable action items with priority badges + assignee + due date
+- [x] **Export sheet** (replaces plain share button):
+  - Share link (copy `app.kolasys.ai/recordings/{id}` to clipboard)
+  - Copy Notes (Markdown to clipboard)
+  - Copy Transcript (plain text to clipboard)
+  - Export Notes as TXT (save + share via expo-sharing)
+  - Export Transcript as TXT (save + share)
+  - Export Notes as PDF (expo-print HTML → PDF → share)
 
 ### Settings Screen
 - [x] User profile card (name, email, avatar initial)
@@ -59,10 +79,37 @@
 
 ### Infrastructure
 - [x] tRPC v11 + React Query v5 client with auth headers
+- [x] `src/lib/api.ts` — shared `trpcGet` / `trpcPost` helpers
 - [x] New Architecture (`newArchEnabled: true`) — JSI-compatible
 - [x] Native development build via `npx expo run:ios`
 - [x] All native package versions pinned to Expo SDK 54 exact versions
 - [x] react-native-worklets installed (required peer dep for reanimated v4)
+
+---
+
+## Competitor Research (April 2026)
+
+Analyzed Fireflies.ai and PLAUD (AI voice recorder hardware) to inform feature roadmap.
+
+### Fireflies.ai strengths observed
+- "Soundbites" — shareable audio clips with transcript highlight
+- AskFred AI chatbot on each recording (Q&A over transcript)
+- Smart search across all meetings
+- CRM integrations (Salesforce, HubSpot) — auto log meeting to deal
+- Channels / shared workspaces — public team feed of recordings
+- Thread comments on transcript segments
+
+### PLAUD strengths observed
+- Hardware AI pin (always-on ambient recording)
+- Mind map export from notes
+- Summary cards styled like social media posts (shareable images)
+- Offline transcription on-device
+- Multiple language auto-detect
+
+### Key gaps our app addresses vs competitors
+- Our export sheet (Copy/TXT/PDF) surpasses Fireflies free tier export restrictions
+- Our Calendar tab with bot-toggle is more integrated than Fireflies' calendar widget
+- Our Tasks tab aggregates action items across all meetings (Fireflies buries this)
 
 ---
 
@@ -71,26 +118,35 @@
 ### High Priority
 - [ ] **Android build** — `npx expo run:android` not yet tested
 - [ ] **Physical device build** — requires Apple Developer account ($99/yr, pending)
-- [ ] **Push notifications** — expo-notifications is installed but not wired up; users need alerts when notes are ready
-- [ ] **Upload endpoint** — confirm the correct upload API path (`/api/upload` is assumed); adjust `RecordScreen.tsx:152` if different
+- [ ] **Push notifications** — expo-notifications installed but not wired up; alert when notes are ready
+- [ ] **Upload endpoint** — confirm the correct upload API path; adjust `RecordScreen.tsx` if different
 
-### Features
-- [ ] **Calendar screen** — `CalendarScreen.tsx` exists and is implemented but not in the current tab navigator; re-add when ready
-- [ ] **Bot deployment** — "Deploy Bot" flow from Calendar screen needs real API integration
-- [ ] **Recordings pagination** — currently fetches up to 50 recordings; needs infinite scroll for large libraries
-- [ ] **Offline support** — no caching; requires network connectivity for all data
-- [ ] **Background recording** — currently stops if app is backgrounded; needs expo-task-manager integration
-- [ ] **Speaker label editing** — transcript shows raw speaker IDs; UI to rename speakers not yet built
-- [ ] **Search across notes content** — current search only filters by recording title
+### Features — Based on Competitor Analysis
+- [ ] **AskFred-style AI chat** — "Ask AI" input on RecordingDetailScreen for Q&A over transcript
+- [ ] **Smart search** — search across note content, not just recording title
+- [ ] **Shareable summary card** — image export of key points as a shareable graphic
+- [ ] **Transcript comments** — tap a segment to add a note/comment
+- [ ] **Soundbite clips** — select transcript range to share as a highlight
+- [ ] **CRM integration UI** — "Log to CRM" action in export sheet
+
+### Features — Infrastructure
+- [ ] **Recordings pagination** — currently fetches up to 50; needs infinite scroll
+- [ ] **Offline support** — no caching; requires network connectivity
+- [ ] **Background recording** — stops if app backgrounded; needs expo-task-manager
+- [ ] **Speaker label editing** — transcript shows raw speaker IDs; UI to rename not yet built
+
+### Calendar Tab
+- [ ] **Bot deployment** — toggle actually deploys bot via `recordings.create` tRPC mutation (currently shows alert)
+- [ ] **Meeting link detection** — parse Zoom/Meet URLs from event notes/location for bot URL
 
 ### Polish
-- [ ] **Dark mode** — all colors are hardcoded light; theme system was removed to fix a JSI crash and not yet restored
-- [ ] **Haptic feedback** — expo-haptics is installed but not used
-- [ ] **Skeleton loaders** — screens show ActivityIndicator during load; skeleton screens would feel smoother
-- [ ] **Recording detail from Home** — tapping a recording card on HomeScreen navigates to the Recordings tab but doesn't deep-link directly to the detail
+- [ ] **Dark mode** — all colors are hardcoded light; theme system was removed to fix a JSI crash
+- [ ] **Haptic feedback** — expo-haptics installed but not used
+- [ ] **Skeleton loaders** — screens show ActivityIndicator; skeleton screens would feel smoother
+- [ ] **Feed key points bullets** — Feed cards can't show note bullets (API list endpoint doesn't return note content); requires either API change or separate per-recording fetches
 
 ### Infrastructure
-- [ ] **EAS Build** — configure `eas.json` for cloud builds and OTA updates via Expo Application Services
+- [ ] **EAS Build** — configure `eas.json` for cloud builds and OTA updates
 - [ ] **TestFlight distribution** — needs Apple Developer account + EAS Build
 - [ ] **App Store submission** — icons, splash screen, App Store metadata, privacy manifest
 
@@ -102,9 +158,10 @@
 |---|---|---|
 | Hermes build phase warning | Harmless | Pre-existing CocoaPods warning; doesn't affect runtime |
 | npm peer dep conflict (react-dom) | Workaround in place | `npm install --legacy-peer-deps` required; caused by `@clerk/clerk-expo` pulling in `react-dom` |
-| `trpc.recordings.list` response shape | Unverified | Code handles both `data.recordings`, `data.items`, and bare array; adjust if server shape differs |
-| Upload endpoint path | Unverified | Assumes `https://app.kolasys.ai/api/upload`; may need to match actual server route |
+| `trpc.recordings.list` response shape | Handled | Code handles `data.recordings`, `data.items`, and bare array |
+| Upload endpoint path | Unverified | Assumes `https://app.kolasys.ai/api/upload`; may need adjustment |
 | Google OAuth in simulator | Works | Uses `exp://` redirect URI via `AuthSession.makeRedirectUri()` |
+| expo-file-system v19 API | Fixed | Must import from `expo-file-system/legacy` for `cacheDirectory`, `EncodingType`, `writeAsStringAsync` |
 
 ---
 
@@ -118,4 +175,29 @@ These were the root cause of a persistent JSI crash (`expected dynamic type 'boo
 | react-native-screens | ~4.16.0 | 4.24.0 |
 | react-native-gesture-handler | ~2.28.0 | 2.31.0 |
 
-Do not upgrade these independently — always use `npx expo install <package>` to get the SDK-compatible version.
+**Do not upgrade these independently** — always use `npx expo install <package>` to get the SDK-compatible version.
+
+---
+
+## Architecture
+
+```
+App.tsx
+└── ClerkProvider (Clerk auth)
+    └── TRPCProvider (tRPC + React Query)
+        └── AppNavigator (NavigationContainer)
+            ├── BottomTabNavigator
+            │   ├── HomeScreen (Feed / Tasks / Calendar tabs)
+            │   ├── RecordScreen (expo-av recording)
+            │   ├── RecordingsStack
+            │   │   ├── RecordingsScreen (list + search)
+            │   │   └── RecordingDetailScreen (Notes / Transcript / Actions + Export sheet)
+            │   └── SettingsScreen
+            └── (CalendarScreen — built but not in nav; re-add when ready)
+```
+
+### Key patterns
+- **tRPC calls**: `src/lib/api.ts` `trpcGet`/`trpcPost` for direct HTTP; `trpc.X.useQuery()` for reactive queries
+- **Stable getToken**: `useAuth().getToken` is recreated each render → always store in `useRef` before using in `useCallback`/`useEffect`
+- **Notes normalization**: server returns `notes[]` (array, take:1); client normalizes to `note` singular via `rawData.note ?? rawData.notes?.[0] ?? null`
+- **Polling**: `loadRef.current` pattern to break self-referential polling dependency
