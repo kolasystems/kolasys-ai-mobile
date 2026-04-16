@@ -23,11 +23,13 @@ import type { Recording, Note, NoteSection, ActionItem, TranscriptSegment } from
 import { StatusBadge } from '../components/StatusBadge';
 import { ActionItemRow } from '../components/ActionItemRow';
 import { TranscriptSegmentRow } from '../components/TranscriptSegment';
+import { AskAITab } from '../components/AskAITab';
+import { useReadyStore } from '../lib/notifications';
 import type { RecordingsStackParamList } from '../navigation/AppNavigator';
 
 type RouteT = RouteProp<RecordingsStackParamList, 'RecordingDetail'>;
 type NavT = NativeStackNavigationProp<RecordingsStackParamList, 'RecordingDetail'>;
-type Tab = 'notes' | 'transcript' | 'actions';
+type Tab = 'notes' | 'transcript' | 'actions' | 'ai';
 
 const API = 'https://app.kolasys.ai/api/trpc';
 const PROCESSING_STATUSES = ['PENDING', 'PROCESSING', 'TRANSCRIBING', 'SUMMARIZING'];
@@ -591,6 +593,8 @@ export default function RecordingDetailScreen() {
   const [showExport, setShowExport] = useState(false);
 
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const prevStatusRef = useRef<string | null>(null);
+  const markReady = useReadyStore(s => s.markReady);
   const getTokenRef = useRef(getToken);
   useEffect(() => { getTokenRef.current = getToken; });
 
@@ -633,6 +637,12 @@ export default function RecordingDetailScreen() {
 
       setRecording(data);
 
+      const prevStatus = prevStatusRef.current;
+      prevStatusRef.current = data.status;
+      if (prevStatus && prevStatus !== 'READY' && data.status === 'READY') {
+        markReady(data.id, data.title);
+      }
+
       if (isProcessing(data.status)) {
         pollRef.current = setTimeout(() => void loadRef.current?.(true), 5000);
       }
@@ -647,7 +657,7 @@ export default function RecordingDetailScreen() {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, [id]);
+  }, [id, markReady]);
 
   loadRef.current = load;
 
@@ -772,14 +782,14 @@ export default function RecordingDetailScreen() {
         {recording.status === 'READY' && (
           <>
             <View style={styles.tabs}>
-              {(['notes', 'transcript', 'actions'] as Tab[]).map((tab) => (
+              {(['notes', 'transcript', 'actions', 'ai'] as Tab[]).map((tab) => (
                 <TouchableOpacity
                   key={tab}
                   style={[styles.tab, activeTab === tab && styles.tabActive]}
                   onPress={() => setActiveTab(tab)}
                 >
                   <Text style={[styles.tabText, { color: activeTab === tab ? '#5B8DEF' : '#6b7280' }]}>
-                    {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                    {tab === 'ai' ? 'Ask AI' : tab.charAt(0).toUpperCase() + tab.slice(1)}
                     {tab === 'actions' && recording.note?.actionItems?.length
                       ? ` (${recording.note.actionItems.length})`
                       : ''}
@@ -854,6 +864,8 @@ export default function RecordingDetailScreen() {
                 )}
               </View>
             )}
+
+            {activeTab === 'ai' && <AskAITab recordingId={recording.id} />}
           </>
         )}
       </ScrollView>

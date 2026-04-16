@@ -23,6 +23,7 @@ import type { Recording, ActionItem } from '../lib/trpc';
 import { RecordingCard } from '../components/RecordingCard';
 import { StatusBadge } from '../components/StatusBadge';
 import type { TabParamList } from '../navigation/AppNavigator';
+import { detectReadyTransitions, useReadyStore } from '../lib/notifications';
 
 type Nav = BottomTabNavigationProp<TabParamList>;
 type HomeTab = 'feed' | 'tasks' | 'calendar';
@@ -609,12 +610,28 @@ export default function HomeScreen() {
 
   const firstName = user?.firstName ?? user?.username ?? 'there';
 
-  const { data, isLoading, refetch, isRefetching } = trpc.recordings.list.useQuery({ limit: 50 });
+  const { data, isLoading, refetch, isRefetching } = trpc.recordings.list.useQuery(
+    { limit: 50 },
+    { refetchInterval: 20_000 },
+  );
   const recordings: Recording[] = (data as any)?.recordings ?? (data as any)?.items ?? (Array.isArray(data) ? data : []);
 
   // Stable getToken ref for child components that fetch lazily
   const getTokenRef = useRef(getToken);
   useEffect(() => { getTokenRef.current = getToken; });
+
+  // Detect PROCESSING→READY transitions and fire local notifications
+  const prevStatusesRef = useRef<Map<string, string> | null>(null);
+  useEffect(() => {
+    if (!recordings.length) return;
+    prevStatusesRef.current = detectReadyTransitions(
+      recordings.map(r => ({ id: r.id, title: r.title, status: r.status })),
+      prevStatusesRef.current,
+    );
+  }, [recordings]);
+
+  const readyQueue = useReadyStore(s => s.queue);
+  const dismissReady = useReadyStore(s => s.dismiss);
 
   const handleCardPress = useCallback((id: string) => {
     (navigation as any).navigate('Recordings', {
@@ -657,6 +674,34 @@ export default function HomeScreen() {
           <Text style={styles.recordBtnText}>Record</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Ready banner */}
+      {readyQueue.map((item) => (
+        <TouchableOpacity
+          key={item.id}
+          style={styles.readyBanner}
+          activeOpacity={0.85}
+          onPress={() => {
+            dismissReady(item.id);
+            handleCardPress(item.id);
+          }}
+        >
+          <View style={styles.readyIcon}>
+            <Ionicons name="checkmark-circle" size={20} color="#ffffff" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.readyTitle}>Notes are ready</Text>
+            <Text style={styles.readySub} numberOfLines={1}>{item.title}</Text>
+          </View>
+          <TouchableOpacity
+            onPress={() => dismissReady(item.id)}
+            hitSlop={10}
+            style={styles.readyClose}
+          >
+            <Ionicons name="close" size={16} color="#ffffffcc" />
+          </TouchableOpacity>
+        </TouchableOpacity>
+      ))}
 
       {/* Tabs */}
       <View style={styles.tabBar}>
@@ -729,4 +774,21 @@ const styles = StyleSheet.create({
   tabLabel: { fontSize: 13, fontWeight: '500', color: '#9ca3af' },
   tabLabelActive: { color: '#5B8DEF', fontWeight: '700' },
   sectionLabel: { fontSize: 13, fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 0.5 },
+  readyBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#10B981',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  readyIcon: {
+    width: 32, height: 32, borderRadius: 16,
+    backgroundColor: '#ffffff25',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  readyTitle: { fontSize: 14, fontWeight: '700', color: '#ffffff' },
+  readySub: { fontSize: 12, color: '#ffffffcc', marginTop: 1 },
+  readyClose: { padding: 4 },
 });

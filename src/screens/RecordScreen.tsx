@@ -18,13 +18,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@clerk/clerk-expo';
 import Constants from 'expo-constants';
+import * as FileSystem from 'expo-file-system/legacy';
+import { trpcPost } from '../lib/api';
 
 // True on a physical device, false on simulator/emulator
 const IS_REAL_DEVICE = Constants.isDevice;
 
 type RecordState = 'idle' | 'recording' | 'paused' | 'stopped' | 'uploading' | 'done';
 
-const API_BASE = 'https://app.kolasys.ai/api';
 const NUM_BARS = 7;
 
 function pad(n: number) {
@@ -233,23 +234,51 @@ export default function RecordScreen() {
     setState('uploading');
     try {
       const token = await getToken();
-      const formData = new FormData();
-      formData.append('file', { uri: recordingUri, type: 'audio/m4a', name: 'recording.m4a' } as never);
-      formData.append('title', title.trim());
+      const contentType = 'audio/m4a';
+      const extension = 'm4a';
 
-      const res = await fetch(`${API_BASE}/upload`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token ?? ''}` },
-        body: formData,
+      // 1. Create the DB recording row (PENDING)
+      const recording = await trpcPost<{ id: string }>(
+        'recordings.create',
+        { title: title.trim(), source: 'UPLOAD' },
+        token,
+      );
+      if (!recording?.id) throw new Error('Failed to create recording record.');
+
+      // 2. Get a pre-signed S3 upload URL
+      const uploadInfo = await trpcPost<{ url: string; key: string }>(
+        'recordings.getUploadUrl',
+        { recordingId: recording.id, contentType, extension },
+        token,
+      );
+      if (!uploadInfo?.url) throw new Error('Failed to get upload URL.');
+
+      // 3. PUT the audio file directly to S3
+      const putRes = await FileSystem.uploadAsync(uploadInfo.url, recordingUri, {
+        httpMethod: 'PUT',
+        uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+        headers: { 'Content-Type': contentType },
       });
-
-      if (!res.ok) {
-        const text = await res.text().catch(() => '');
-        throw new Error(`Upload failed (${res.status})${text ? `: ${text}` : ''}`);
+      if (putRes.status < 200 || putRes.status >= 300) {
+        throw new Error(`S3 upload failed (${putRes.status})${putRes.body ? `: ${putRes.body.slice(0, 200)}` : ''}`);
       }
 
+      // 4. Confirm upload (enqueues transcription)
+      const info = await FileSystem.getInfoAsync(recordingUri);
+      const fileSize = info.exists && 'size' in info && typeof info.size === 'number' ? info.size : undefined;
+      await trpcPost(
+        'recordings.confirmUpload',
+        {
+          recordingId: recording.id,
+          duration: elapsed > 0 ? elapsed : undefined,
+          fileSize,
+          mimeType: contentType,
+        },
+        token,
+      );
+
       setState('done');
-      Alert.alert('Uploaded!', 'Your recording is processing. Check the Recordings tab in a few minutes.', [
+      Alert.alert('Uploaded!', 'Your recording is processing. You\u2019ll be notified when the notes are ready.', [
         {
           text: 'OK',
           onPress: () => {
