@@ -40,7 +40,7 @@ export function RecordingCard({ recording, onPress }: Props) {
             {recording.title}
           </Text>
         </View>
-        <StatusBadge status={recording.status} size="sm" />
+        <StatusBadge status={recording.status} size="sm" createdAt={recording.createdAt} />
       </View>
       <View style={styles.meta}>
         <Text style={styles.metaText}>{formatDate(recording.createdAt)}</Text>

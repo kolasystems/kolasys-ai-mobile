@@ -21,7 +21,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { Audio, type AVPlaybackStatus } from 'expo-av';
 import type { Recording, Note, NoteSection, ActionItem, TranscriptSegment } from '../lib/trpc';
-import { StatusBadge } from '../components/StatusBadge';
+import { StatusBadge, isStuck, formatStuckAge } from '../components/StatusBadge';
 import { ActionItemRow } from '../components/ActionItemRow';
 import { TranscriptSegmentRow } from '../components/TranscriptSegment';
 import { AskAITab } from '../components/AskAITab';
@@ -54,7 +54,7 @@ async function trpcGet<T>(procedure: string, input: Record<string, unknown>, tok
   return item?.result?.data?.json ?? item?.result?.data;
 }
 
-async function trpcPost(procedure: string, input: Record<string, unknown>, token: string | null): Promise<void> {
+async function trpcPost<T = void>(procedure: string, input: Record<string, unknown>, token: string | null): Promise<T> {
   const url = `${API}/${procedure}?batch=1`;
   const res = await fetch(url, {
     method: 'POST',
@@ -68,6 +68,9 @@ async function trpcPost(procedure: string, input: Record<string, unknown>, token
     const text = await res.text().catch(() => '');
     throw new Error(`HTTP ${res.status}: ${text}`);
   }
+  const raw = await res.json().catch(() => null);
+  const item = Array.isArray(raw) ? raw[0] : raw;
+  return (item?.result?.data?.json ?? item?.result?.data) as T;
 }
 
 // ─── Formatters ───────────────────────────────────────────────────────────────
@@ -1041,6 +1044,57 @@ export default function RecordingDetailScreen() {
     }
   }, []);
 
+  const [isRetrying, setIsRetrying] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleRetryStuck = useCallback(async () => {
+    if (!recording) return;
+    setIsRetrying(true);
+    try {
+      const token = await getTokenRef.current();
+      const res = await trpcPost<{ success: boolean; reason?: string }>(
+        'recordings.retryStuck',
+        { recordingId: recording.id },
+        token,
+      );
+      if (res?.success) {
+        void loadRef.current?.(true);
+      } else {
+        Alert.alert('Cannot retry', res?.reason ?? 'Audio may have been purged.');
+      }
+    } catch (err) {
+      Alert.alert('Retry failed', err instanceof Error ? err.message : 'Unknown error.');
+    } finally {
+      setIsRetrying(false);
+    }
+  }, [recording]);
+
+  const handleDeleteRecording = useCallback(() => {
+    if (!recording) return;
+    Alert.alert(
+      'Delete recording?',
+      'This will permanently delete the recording, any transcript, notes, and the audio file. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            setIsDeleting(true);
+            try {
+              const token = await getTokenRef.current();
+              await trpcPost('recordings.delete', { id: recording.id }, token);
+              navigation.goBack();
+            } catch (err) {
+              setIsDeleting(false);
+              Alert.alert('Delete failed', err instanceof Error ? err.message : 'Unknown error.');
+            }
+          },
+        },
+      ],
+    );
+  }, [recording, navigation]);
+
   // ── Render states ─────────────────────────────────────────────────────────
 
   if (isLoading) {
@@ -1082,7 +1136,7 @@ export default function RecordingDetailScreen() {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerBack}>
           <Ionicons name="chevron-back" size={24} color="#111827" />
         </TouchableOpacity>
-        <StatusBadge status={recording.status} size="sm" />
+        <StatusBadge status={recording.status} size="sm" createdAt={recording.createdAt} />
         <TouchableOpacity
           onPress={() => setShowExport(true)}
           style={styles.headerShare}
@@ -1123,6 +1177,49 @@ export default function RecordingDetailScreen() {
                  recording.status === 'SUMMARIZING' ? 'Generating notes…' : 'Processing…'}
               </Text>
               <Text style={styles.bannerSub}>This usually takes 1–3 minutes</Text>
+            </View>
+          </View>
+        )}
+
+        {/* Stuck banner */}
+        {isProcessing(recording.status) && isStuck(recording.status, recording.createdAt) && (
+          <View style={styles.stuckBanner}>
+            <Ionicons name="warning-outline" size={20} color="#B45309" />
+            <View style={{ flex: 1, gap: 10 }}>
+              <View style={{ gap: 2 }}>
+                <Text style={styles.stuckTitle}>Stuck?</Text>
+                <Text style={styles.stuckSub}>
+                  This recording has been processing for {formatStuckAge(recording.createdAt)}.
+                </Text>
+              </View>
+              <View style={styles.stuckBtnRow}>
+                <TouchableOpacity
+                  style={[styles.stuckBtn, styles.stuckRetryBtn, isRetrying && { opacity: 0.6 }]}
+                  onPress={handleRetryStuck}
+                  disabled={isRetrying || isDeleting}
+                  activeOpacity={0.8}
+                >
+                  {isRetrying ? (
+                    <ActivityIndicator size="small" color="#B45309" />
+                  ) : (
+                    <Ionicons name="refresh" size={14} color="#B45309" />
+                  )}
+                  <Text style={styles.stuckRetryText}>
+                    {isRetrying ? 'Retrying…' : 'Retry'}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.stuckBtn, styles.stuckDeleteBtn, isDeleting && { opacity: 0.6 }]}
+                  onPress={handleDeleteRecording}
+                  disabled={isRetrying || isDeleting}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="trash-outline" size={14} color="#ffffff" />
+                  <Text style={styles.stuckDeleteText}>
+                    {isDeleting ? 'Deleting…' : 'Delete'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         )}
@@ -1282,6 +1379,37 @@ const styles = StyleSheet.create({
   },
   bannerTitle: { fontSize: 14, fontWeight: '600' },
   bannerSub: { fontSize: 12, color: '#5B8DEF99' },
+  stuckBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    marginHorizontal: 20,
+    marginBottom: 16,
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    backgroundColor: '#FEF3C7',
+    borderColor: '#F59E0B',
+  },
+  stuckTitle: { fontSize: 14, fontWeight: '700', color: '#78350F' },
+  stuckSub: { fontSize: 12, color: '#92400E', lineHeight: 17 },
+  stuckBtnRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
+  stuckBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 8,
+  },
+  stuckRetryBtn: {
+    backgroundColor: '#FDE68A',
+    borderWidth: 1,
+    borderColor: '#D97706',
+  },
+  stuckRetryText: { fontSize: 13, fontWeight: '700', color: '#B45309' },
+  stuckDeleteBtn: { backgroundColor: '#DC2626' },
+  stuckDeleteText: { fontSize: 13, fontWeight: '700', color: '#ffffff' },
   tabs: {
     flexDirection: 'row',
     borderBottomWidth: StyleSheet.hairlineWidth,

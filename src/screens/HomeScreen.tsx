@@ -90,7 +90,7 @@ function FeedCard({ recording, onPress }: { recording: Recording; onPress: () =>
           </View>
         </View>
         <View style={{ alignItems: 'flex-end', gap: 6 }}>
-          <StatusBadge status={recording.status} size="sm" />
+          <StatusBadge status={recording.status} size="sm" createdAt={recording.createdAt} />
           <Ionicons name="chevron-forward" size={16} color="#d1d5db" />
         </View>
       </View>
