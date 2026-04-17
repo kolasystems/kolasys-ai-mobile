@@ -41,7 +41,7 @@ export async function trpcPost<T = void>(
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
-    body: JSON.stringify([{ json: input }]),
+    body: JSON.stringify({ '0': { json: input } }),
   });
   if (!res.ok) {
     const text = await res.text().catch(() => '');
