@@ -19,6 +19,7 @@ import * as Clipboard from 'expo-clipboard';
 import * as Print from 'expo-print';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
+import { Audio, type AVPlaybackStatus } from 'expo-av';
 import type { Recording, Note, NoteSection, ActionItem, TranscriptSegment } from '../lib/trpc';
 import { StatusBadge } from '../components/StatusBadge';
 import { ActionItemRow } from '../components/ActionItemRow';
@@ -166,7 +167,17 @@ const WAVEFORM_HEIGHTS = [
   0.6,0.9,0.3,0.5,0.7,0.4,0.6,0.8,0.3,0.5,
 ];
 
-function WaveformBar({ duration }: { duration: number | null }) {
+type WaveformBarProps = {
+  duration: number | null;
+  // Override the default "Audio deleted after transcription" subtitle. Pass `null`
+  // to hide the subtitle entirely (used when the real player is mounted below).
+  subtitle?: string | null;
+};
+
+function WaveformBar({ duration, subtitle }: WaveformBarProps) {
+  const sub =
+    subtitle === undefined ? 'Audio deleted after transcription' : subtitle;
+
   return (
     <View style={waveStyles.wrap}>
       <View style={waveStyles.bars}>
@@ -177,10 +188,12 @@ function WaveformBar({ duration }: { duration: number | null }) {
           />
         ))}
       </View>
-      {duration != null && (
+      {(duration != null || sub) && (
         <View style={waveStyles.durationRow}>
-          <Text style={waveStyles.durationText}>{formatDuration(duration)}</Text>
-          <Text style={waveStyles.durationSub}>Audio deleted after transcription</Text>
+          {duration != null && (
+            <Text style={waveStyles.durationText}>{formatDuration(duration)}</Text>
+          )}
+          {sub && <Text style={waveStyles.durationSub}>{sub}</Text>}
         </View>
       )}
     </View>
@@ -196,49 +209,395 @@ const waveStyles = StyleSheet.create({
   durationSub: { fontSize: 11, color: '#9ca3af' },
 });
 
-// ─── Audio player UI (visual only — audio deleted after transcription) ────────
+// ─── Audio player (real playback via expo-av + pre-signed S3 URL) ────────────
 
-function AudioPlayerUI({ duration }: { duration: number | null }) {
-  const [playing, setPlaying] = useState(false);
+type AudioState =
+  | { kind: 'loading' }
+  | { kind: 'unavailable' }      // server says the audio file is gone
+  | { kind: 'error'; message: string }
+  | { kind: 'ready' };
+
+function AudioPlayerBlock({
+  recordingId,
+  duration,
+}: {
+  recordingId: string;
+  duration: number | null;
+}) {
+  const { getToken } = useAuth();
+  const getTokenRef = useRef(getToken);
+  useEffect(() => {
+    getTokenRef.current = getToken;
+  });
+
+  const soundRef = useRef<Audio.Sound | null>(null);
+  const isMountedRef = useRef(true);
+  const hasRetriedRef = useRef(false);
+
+  const [state, setState] = useState<AudioState>({ kind: 'loading' });
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [positionMs, setPositionMs] = useState(0);
+  const [durationMs, setDurationMs] = useState<number>(
+    duration != null ? duration * 1000 : 0,
+  );
+  const [barWidth, setBarWidth] = useState(0);
+
+  // Latest position is needed inside `onStatus` when refetching after an
+  // expired URL — keep a ref so we don't have to thread state into callbacks.
+  const positionMsRef = useRef(0);
+  useEffect(() => { positionMsRef.current = positionMs; }, [positionMs]);
+  const isPlayingRef = useRef(false);
+  useEffect(() => { isPlayingRef.current = isPlaying; }, [isPlaying]);
+
+  async function fetchUrl(): Promise<string | null> {
+    const token = await getTokenRef.current();
+    const data = await trpcGet<{ url: string | null }>(
+      'recordings.getAudioUrl',
+      { recordingId },
+      token,
+    );
+    return data?.url ?? null;
+  }
+
+  async function unloadSound() {
+    const s = soundRef.current;
+    soundRef.current = null;
+    if (!s) return;
+    try {
+      await s.unloadAsync();
+    } catch {
+      /* noop */
+    }
+  }
+
+  async function loadSound(url: string, startAtMs = 0, autoplay = false) {
+    await unloadSound();
+    const { sound } = await Audio.Sound.createAsync(
+      { uri: url },
+      {
+        shouldPlay: autoplay,
+        positionMillis: startAtMs,
+        progressUpdateIntervalMillis: 250,
+      },
+    );
+    if (!isMountedRef.current) {
+      await sound.unloadAsync().catch(() => {});
+      return;
+    }
+    soundRef.current = sound;
+    sound.setOnPlaybackStatusUpdate(onStatus);
+  }
+
+  async function onStatus(status: AVPlaybackStatus) {
+    if (!isMountedRef.current) return;
+
+    if (!status.isLoaded) {
+      if (status.error && !hasRetriedRef.current) {
+        // Most commonly a 403 from an expired signed URL — refetch once.
+        hasRetriedRef.current = true;
+        try {
+          const fresh = await fetchUrl();
+          if (!fresh) {
+            setState({ kind: 'unavailable' });
+            return;
+          }
+          await loadSound(fresh, positionMsRef.current, isPlayingRef.current);
+        } catch {
+          setState({ kind: 'error', message: 'Playback error' });
+        }
+      }
+      return;
+    }
+
+    setIsPlaying(status.isPlaying);
+    setPositionMs(status.positionMillis);
+    if (status.durationMillis) setDurationMs(status.durationMillis);
+    if (status.didJustFinish) {
+      setIsPlaying(false);
+      setPositionMs(0);
+      soundRef.current?.setPositionAsync(0).catch(() => {});
+    }
+  }
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    hasRetriedRef.current = false;
+
+    (async () => {
+      setState({ kind: 'loading' });
+
+      // Let audio play with the iOS hardware silent switch on.
+      try {
+        await Audio.setAudioModeAsync({
+          playsInSilentModeIOS: true,
+          staysActiveInBackground: false,
+          shouldDuckAndroid: true,
+        });
+      } catch {
+        /* non-fatal — audio will still play, just mute in silent mode */
+      }
+
+      try {
+        const url = await fetchUrl();
+        if (!isMountedRef.current) return;
+        if (!url) {
+          setState({ kind: 'unavailable' });
+          return;
+        }
+        await loadSound(url);
+        if (!isMountedRef.current) return;
+        setState({ kind: 'ready' });
+      } catch (err) {
+        if (!isMountedRef.current) return;
+        setState({
+          kind: 'error',
+          message: err instanceof Error ? err.message : 'Failed to load audio',
+        });
+      }
+    })();
+
+    return () => {
+      isMountedRef.current = false;
+      void unloadSound();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recordingId]);
+
+  async function togglePlay() {
+    const s = soundRef.current;
+    if (!s) return;
+    try {
+      const status = await s.getStatusAsync();
+      if (!status.isLoaded) return;
+      if (status.isPlaying) {
+        await s.pauseAsync();
+      } else {
+        await s.playAsync();
+      }
+    } catch {
+      // Could be an expired URL, or another transient failure. Retry once
+      // with a fresh URL — mirrors the `onStatus` recovery path.
+      if (hasRetriedRef.current) return;
+      hasRetriedRef.current = true;
+      try {
+        const fresh = await fetchUrl();
+        if (!fresh) {
+          setState({ kind: 'unavailable' });
+          return;
+        }
+        await loadSound(fresh, positionMsRef.current, true);
+      } catch {
+        setState({ kind: 'error', message: 'Playback failed' });
+      }
+    }
+  }
+
+  async function skip(deltaSec: number) {
+    const s = soundRef.current;
+    if (!s) return;
+    const dur = durationMs || 0;
+    if (dur === 0) return;
+    const next = Math.max(0, Math.min(dur, positionMs + deltaSec * 1000));
+    try {
+      await s.setPositionAsync(next);
+    } catch {
+      /* noop */
+    }
+  }
+
+  async function seekToX(locationX: number) {
+    const s = soundRef.current;
+    const dur = durationMs || 0;
+    if (!s || !barWidth || !dur) return;
+    const frac = Math.max(0, Math.min(1, locationX / barWidth));
+    const target = Math.round(frac * dur);
+    try {
+      await s.setPositionAsync(target);
+      setPositionMs(target);
+    } catch {
+      /* noop */
+    }
+  }
+
+  if (state.kind === 'loading') {
+    return (
+      <View style={playerStyles.container}>
+        <WaveformBar duration={duration} subtitle="Loading audio…" />
+        <View style={playerStyles.loadingRow}>
+          <ActivityIndicator size="small" color="#5B8DEF" />
+        </View>
+      </View>
+    );
+  }
+
+  if (state.kind === 'unavailable') {
+    // Existing behaviour — keep the default "deleted" subtitle.
+    return (
+      <View style={playerStyles.container}>
+        <WaveformBar duration={duration} />
+      </View>
+    );
+  }
+
+  if (state.kind === 'error') {
+    return (
+      <View style={playerStyles.container}>
+        <WaveformBar duration={duration} subtitle={state.message} />
+      </View>
+    );
+  }
+
+  const displayDurMs = durationMs || (duration ?? 0) * 1000;
+  const progress = displayDurMs > 0 ? Math.min(1, positionMs / displayDurMs) : 0;
+
   return (
-    <View style={playerStyles.wrap}>
-      <TouchableOpacity
-        style={playerStyles.seekBtn}
-        onPress={() => Alert.alert('Audio unavailable', 'Audio is deleted after transcription to save storage.')}
-      >
-        <Ionicons name="play-skip-back" size={18} color="#6b7280" />
-        <Text style={playerStyles.seekLabel}>15</Text>
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={playerStyles.playBtn}
-        onPress={() => Alert.alert('Audio unavailable', 'Audio is deleted after transcription to save storage.')}
-        activeOpacity={0.8}
-      >
-        <Ionicons name={playing ? 'pause' : 'play'} size={22} color="#ffffff" />
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={playerStyles.seekBtn}
-        onPress={() => Alert.alert('Audio unavailable', 'Audio is deleted after transcription to save storage.')}
-      >
-        <Text style={playerStyles.seekLabel}>15</Text>
-        <Ionicons name="play-skip-forward" size={18} color="#6b7280" />
-      </TouchableOpacity>
+    <View style={playerStyles.container}>
+      <WaveformBar duration={null} subtitle={null} />
+
+      {/* Scrubber — tap anywhere on the bar to seek */}
+      <View style={playerStyles.scrubberWrap}>
+        <View
+          style={playerStyles.progressTrack}
+          onLayout={(e) => setBarWidth(e.nativeEvent.layout.width)}
+          onStartShouldSetResponder={() => true}
+          onMoveShouldSetResponder={() => true}
+          onResponderRelease={(e) => void seekToX(e.nativeEvent.locationX)}
+          hitSlop={12}
+        >
+          <View
+            style={[playerStyles.progressFill, { width: `${progress * 100}%` }]}
+          />
+          <View
+            style={[
+              playerStyles.progressThumb,
+              { left: `${progress * 100}%` },
+            ]}
+          />
+        </View>
+        <View style={playerStyles.timeRow}>
+          <Text style={playerStyles.time}>
+            {formatTimestamp(positionMs / 1000)}
+          </Text>
+          <Text style={playerStyles.time}>
+            {formatTimestamp(displayDurMs / 1000)}
+          </Text>
+        </View>
+      </View>
+
+      {/* Transport controls */}
+      <View style={playerStyles.controls}>
+        <TouchableOpacity
+          style={playerStyles.seekBtn}
+          onPress={() => void skip(-15)}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="play-skip-back" size={18} color="#111827" />
+          <Text style={playerStyles.seekLabel}>15</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={playerStyles.playBtn}
+          onPress={() => void togglePlay()}
+          activeOpacity={0.8}
+        >
+          <Ionicons
+            name={isPlaying ? 'pause' : 'play'}
+            size={22}
+            color="#ffffff"
+          />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={playerStyles.seekBtn}
+          onPress={() => void skip(15)}
+          activeOpacity={0.7}
+        >
+          <Text style={playerStyles.seekLabel}>15</Text>
+          <Ionicons name="play-skip-forward" size={18} color="#111827" />
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
 
 const playerStyles = StyleSheet.create({
-  wrap: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 24, paddingVertical: 12,
-    borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#f3f4f6',
+  container: {
+    paddingBottom: 8,
+  },
+  loadingRow: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+  },
+  scrubberWrap: {
+    paddingHorizontal: 20,
+    paddingTop: 4,
+    paddingBottom: 4,
+  },
+  progressTrack: {
+    position: 'relative',
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#e5e7eb',
+    overflow: 'visible',
+    justifyContent: 'center',
+  },
+  progressFill: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    borderRadius: 2,
+    backgroundColor: '#5B8DEF',
+  },
+  progressThumb: {
+    position: 'absolute',
+    top: -5,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#5B8DEF',
+    marginLeft: -7,
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 2,
+  },
+  timeRow: {
+    marginTop: 8,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  time: {
+    fontSize: 11,
+    color: '#6b7280',
+    fontVariant: ['tabular-nums'],
+  },
+  controls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 24,
+    paddingVertical: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#f3f4f6',
   },
   playBtn: {
-    width: 48, height: 48, borderRadius: 24,
-    backgroundColor: '#5B8DEF', alignItems: 'center', justifyContent: 'center',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#5B8DEF',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  seekBtn: { flexDirection: 'row', alignItems: 'center', gap: 3, opacity: 0.5 },
-  seekLabel: { fontSize: 12, fontWeight: '700', color: '#6b7280' },
+  seekBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    padding: 8,
+  },
+  seekLabel: { fontSize: 12, fontWeight: '700', color: '#111827' },
 });
 
 // ─── Topic outline ────────────────────────────────────────────────────────────
@@ -802,9 +1161,13 @@ export default function RecordingDetailScreen() {
 
             {activeTab === 'transcript' && (
               <View>
-                {/* Waveform + audio player */}
-                <WaveformBar duration={recording.duration} />
-                <AudioPlayerUI duration={recording.duration} />
+                {/* Real audio player — fetches pre-signed S3 URL on mount
+                    (i.e. every time the Transcript tab is focused) and
+                    gracefully degrades when the audio has been purged. */}
+                <AudioPlayerBlock
+                  recordingId={recording.id}
+                  duration={recording.duration}
+                />
 
                 <View style={[styles.tabContent, { paddingTop: 16 }]}>
                   {/* Topic outline */}
