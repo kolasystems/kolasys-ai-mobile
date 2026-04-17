@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,10 @@ import {
   RefreshControl,
   Alert,
   Modal,
+  TextInput,
+  Switch,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRoute, useNavigation } from '@react-navigation/native';
@@ -938,6 +942,586 @@ const notesStyles = StyleSheet.create({
   sectionContent: { fontSize: 14, lineHeight: 21, color: '#6b7280' },
 });
 
+// ─── Name Speakers Modal ──────────────────────────────────────────────────────
+
+function NameSpeakersModal({ visible, recordingId, segments, onClose, onSuccess }: {
+  visible: boolean;
+  recordingId: string;
+  segments: TranscriptSegment[];
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const { getToken } = useAuth();
+  const getTokenRef = useRef(getToken);
+  useEffect(() => { getTokenRef.current = getToken; });
+
+  const [mappings, setMappings] = useState<Record<string, string>>({});
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const uniqueSpeakers = useMemo(() => {
+    const set = new Set<string>();
+    for (const s of segments) if (s.speaker) set.add(s.speaker);
+    return [...set];
+  }, [segments]);
+
+  useEffect(() => {
+    if (!visible) return;
+    setError(null);
+    setIsSaving(false);
+    let cancelled = false;
+    (async () => {
+      let labels: { speakerId: string; displayName: string }[] | null = null;
+      try {
+        const token = await getTokenRef.current();
+        labels = await trpcGet<{ speakerId: string; displayName: string }[]>(
+          'recordings.listSpeakerLabels',
+          { recordingId },
+          token,
+        );
+      } catch {
+        labels = null;
+      }
+      if (cancelled) return;
+      const init: Record<string, string> = {};
+      for (const s of uniqueSpeakers) {
+        const label = labels?.find(l => l.speakerId === s);
+        init[s] = label?.displayName ?? s;
+      }
+      setMappings(init);
+    })();
+    return () => { cancelled = true; };
+  }, [visible, recordingId, uniqueSpeakers]);
+
+  const handleSave = async () => {
+    setError(null);
+    setIsSaving(true);
+    try {
+      const token = await getTokenRef.current();
+      const speakerMappings = Object.entries(mappings)
+        .map(([from, to]) => ({ from, to: to.trim() }))
+        .filter(({ from, to }) => !!to && to !== from);
+      if (speakerMappings.length > 0) {
+        await trpcPost('recordings.nameSpeakers', { recordingId, speakerMappings }, token);
+      }
+      onSuccess();
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={modalStyles.backdrop}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={modalStyles.kav}
+        >
+          <View style={modalStyles.card}>
+            <Text style={modalStyles.title}>Name speakers</Text>
+            <Text style={modalStyles.sub}>
+              Rename the speakers in this recording. Changes apply to the full transcript.
+            </Text>
+            <ScrollView
+              style={{ maxHeight: 280 }}
+              contentContainerStyle={{ gap: 12, paddingVertical: 8 }}
+              keyboardShouldPersistTaps="handled"
+            >
+              {uniqueSpeakers.length === 0 ? (
+                <Text style={modalStyles.emptyText}>
+                  No speaker labels found in this transcript.
+                </Text>
+              ) : (
+                uniqueSpeakers.map(s => (
+                  <View key={s} style={{ gap: 6 }}>
+                    <Text style={modalStyles.fieldLabel}>{s}</Text>
+                    <TextInput
+                      style={modalStyles.input}
+                      value={mappings[s] ?? ''}
+                      onChangeText={v => setMappings(m => ({ ...m, [s]: v }))}
+                      autoCapitalize="words"
+                      returnKeyType="done"
+                      editable={!isSaving}
+                    />
+                  </View>
+                ))
+              )}
+            </ScrollView>
+            {error && <Text style={modalStyles.errorText}>{error}</Text>}
+            <View style={modalStyles.btnRow}>
+              <TouchableOpacity
+                style={modalStyles.btnSecondary}
+                onPress={onClose}
+                disabled={isSaving}
+              >
+                <Text style={modalStyles.btnSecondaryText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[modalStyles.btnPrimary, isSaving && { opacity: 0.6 }]}
+                onPress={handleSave}
+                disabled={isSaving || uniqueSpeakers.length === 0}
+              >
+                {isSaving ? (
+                  <ActivityIndicator size="small" color="#ffffff" />
+                ) : (
+                  <Text style={modalStyles.btnPrimaryText}>Save</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </View>
+    </Modal>
+  );
+}
+
+// ─── Re-transcribe Modal ──────────────────────────────────────────────────────
+
+const LANGUAGES: { code: string; label: string }[] = [
+  { code: 'en', label: 'English' },
+  { code: 'es', label: 'Spanish' },
+  { code: 'fr', label: 'French' },
+  { code: 'de', label: 'German' },
+  { code: 'pt', label: 'Portuguese' },
+  { code: 'ja', label: 'Japanese' },
+  { code: 'zh', label: 'Chinese' },
+];
+
+function RetranscribeModal({ visible, recordingId, hasAudio, onClose, onSuccess }: {
+  visible: boolean;
+  recordingId: string;
+  hasAudio: boolean;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const { getToken } = useAuth();
+  const getTokenRef = useRef(getToken);
+  useEffect(() => { getTokenRef.current = getToken; });
+
+  const [language, setLanguage] = useState('en');
+  const [quality, setQuality] = useState<'standard' | 'high'>('standard');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!visible) return;
+    setLanguage('en');
+    setQuality('standard');
+    setError(null);
+    setIsSubmitting(false);
+  }, [visible]);
+
+  const handleConfirm = async () => {
+    setError(null);
+    setIsSubmitting(true);
+    try {
+      const token = await getTokenRef.current();
+      await trpcPost('recordings.retranscribe', { recordingId, language, quality }, token);
+      onSuccess();
+      onClose();
+      Alert.alert('Re-transcription queued', 'Your recording will be transcribed again shortly.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to start re-transcription.');
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={modalStyles.backdrop}>
+        <View style={modalStyles.card}>
+          <Text style={modalStyles.title}>Re-transcribe</Text>
+          {!hasAudio ? (
+            <>
+              <Text style={modalStyles.emptyText}>
+                Audio was deleted, cannot re-transcribe.
+              </Text>
+              <View style={modalStyles.btnRow}>
+                <TouchableOpacity style={modalStyles.btnSecondary} onPress={onClose}>
+                  <Text style={modalStyles.btnSecondaryText}>Close</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          ) : (
+            <>
+              <Text style={modalStyles.fieldLabel}>Language</Text>
+              <ScrollView style={{ maxHeight: 220 }} contentContainerStyle={{ gap: 6 }}>
+                {LANGUAGES.map(({ code, label }) => (
+                  <TouchableOpacity
+                    key={code}
+                    style={[
+                      modalStyles.langRow,
+                      language === code && modalStyles.langRowActive,
+                    ]}
+                    onPress={() => setLanguage(code)}
+                    disabled={isSubmitting}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={modalStyles.langLabel}>{label}</Text>
+                    {language === code && (
+                      <Ionicons name="checkmark" size={18} color="#5B8DEF" />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+
+              <Text style={[modalStyles.fieldLabel, { marginTop: 6 }]}>Quality</Text>
+              <View style={modalStyles.toggleRow}>
+                {(['standard', 'high'] as const).map(q => (
+                  <TouchableOpacity
+                    key={q}
+                    style={[
+                      modalStyles.toggleBtn,
+                      quality === q && modalStyles.toggleBtnActive,
+                    ]}
+                    onPress={() => setQuality(q)}
+                    disabled={isSubmitting}
+                    activeOpacity={0.8}
+                  >
+                    <Text
+                      style={[
+                        modalStyles.toggleText,
+                        quality === q && modalStyles.toggleTextActive,
+                      ]}
+                    >
+                      {q === 'standard' ? 'Standard' : 'High'}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <View style={modalStyles.warnBox}>
+                <Ionicons name="warning-outline" size={16} color="#B45309" />
+                <Text style={modalStyles.warnText}>
+                  This will delete the existing transcript and notes.
+                </Text>
+              </View>
+
+              {error && <Text style={modalStyles.errorText}>{error}</Text>}
+
+              <View style={modalStyles.btnRow}>
+                <TouchableOpacity
+                  style={modalStyles.btnSecondary}
+                  onPress={onClose}
+                  disabled={isSubmitting}
+                >
+                  <Text style={modalStyles.btnSecondaryText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[modalStyles.btnPrimary, isSubmitting && { opacity: 0.6 }]}
+                  onPress={handleConfirm}
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? (
+                    <ActivityIndicator size="small" color="#ffffff" />
+                  ) : (
+                    <Text style={modalStyles.btnPrimaryText}>Confirm</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+// ─── Find & Replace Modal ─────────────────────────────────────────────────────
+
+function FindReplaceModal({ visible, recordingId, onClose, onSuccess }: {
+  visible: boolean;
+  recordingId: string;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const { getToken } = useAuth();
+  const getTokenRef = useRef(getToken);
+  useEffect(() => { getTokenRef.current = getToken; });
+
+  const [find, setFind] = useState('');
+  const [replace, setReplace] = useState('');
+  const [wholeWord, setWholeWord] = useState(false);
+  const [preview, setPreview] = useState<{ occurrences: number; segments: number } | null>(null);
+  const [isPreviewing, setIsPreviewing] = useState(false);
+  const [isReplacing, setIsReplacing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reqSeqRef = useRef(0);
+
+  useEffect(() => {
+    if (!visible) return;
+    setFind('');
+    setReplace('');
+    setWholeWord(false);
+    setPreview(null);
+    setError(null);
+    setIsReplacing(false);
+  }, [visible]);
+
+  useEffect(() => {
+    if (!visible) return;
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    const q = find.trim();
+    if (!q) {
+      setPreview(null);
+      setIsPreviewing(false);
+      return;
+    }
+    debounceRef.current = setTimeout(async () => {
+      const seq = ++reqSeqRef.current;
+      setIsPreviewing(true);
+      try {
+        const token = await getTokenRef.current();
+        const result = await trpcGet<{ occurrences: number; segments: number }>(
+          'recordings.previewFindReplace',
+          { recordingId, find: q, wholeWord },
+          token,
+        );
+        if (seq === reqSeqRef.current) setPreview(result);
+      } catch {
+        if (seq === reqSeqRef.current) setPreview(null);
+      } finally {
+        if (seq === reqSeqRef.current) setIsPreviewing(false);
+      }
+    }, 500);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [find, wholeWord, visible, recordingId]);
+
+  const handleReplaceAll = async () => {
+    const q = find.trim();
+    if (!q) return;
+    setError(null);
+    setIsReplacing(true);
+    try {
+      const token = await getTokenRef.current();
+      const result = await trpcPost<{
+        success: boolean;
+        occurrences: number;
+        segmentsUpdated: number;
+      }>(
+        'recordings.findReplaceTranscript',
+        { recordingId, find: q, replace, wholeWord },
+        token,
+      );
+      const count = result?.occurrences ?? 0;
+      onSuccess();
+      onClose();
+      Alert.alert(
+        'Replace complete',
+        `Replaced ${count} occurrence${count === 1 ? '' : 's'}.`,
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Replace failed.');
+      setIsReplacing(false);
+    }
+  };
+
+  const canReplace = !isReplacing && !!find.trim() && (preview?.occurrences ?? 0) > 0;
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={modalStyles.backdrop}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={modalStyles.kav}
+        >
+          <View style={modalStyles.card}>
+            <Text style={modalStyles.title}>Find & Replace</Text>
+
+            <Text style={modalStyles.fieldLabel}>Find</Text>
+            <TextInput
+              style={modalStyles.input}
+              value={find}
+              onChangeText={setFind}
+              autoCapitalize="none"
+              autoCorrect={false}
+              returnKeyType="search"
+              editable={!isReplacing}
+            />
+
+            <Text style={[modalStyles.fieldLabel, { marginTop: 10 }]}>Replace with</Text>
+            <TextInput
+              style={modalStyles.input}
+              value={replace}
+              onChangeText={setReplace}
+              autoCapitalize="none"
+              autoCorrect={false}
+              editable={!isReplacing}
+            />
+
+            <View style={modalStyles.switchRow}>
+              <Text style={modalStyles.switchLabel}>Whole word only</Text>
+              <Switch
+                value={wholeWord}
+                onValueChange={setWholeWord}
+                trackColor={{ false: '#e5e7eb', true: '#5B8DEF' }}
+                thumbColor="#ffffff"
+                disabled={isReplacing}
+              />
+            </View>
+
+            <View style={modalStyles.previewBox}>
+              {isPreviewing ? (
+                <Text style={modalStyles.previewText}>Checking…</Text>
+              ) : preview ? (
+                <Text style={modalStyles.previewText}>
+                  Found {preview.occurrences} occurrence{preview.occurrences === 1 ? '' : 's'} in{' '}
+                  {preview.segments} segment{preview.segments === 1 ? '' : 's'}.
+                </Text>
+              ) : (
+                <Text style={modalStyles.previewText}>
+                  Type in Find to preview matches.
+                </Text>
+              )}
+            </View>
+
+            {error && <Text style={modalStyles.errorText}>{error}</Text>}
+
+            <View style={modalStyles.btnRow}>
+              <TouchableOpacity
+                style={modalStyles.btnSecondary}
+                onPress={onClose}
+                disabled={isReplacing}
+              >
+                <Text style={modalStyles.btnSecondaryText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[modalStyles.btnPrimary, !canReplace && { opacity: 0.4 }]}
+                onPress={handleReplaceAll}
+                disabled={!canReplace}
+              >
+                {isReplacing ? (
+                  <ActivityIndicator size="small" color="#ffffff" />
+                ) : (
+                  <Text style={modalStyles.btnPrimaryText}>Replace All</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </View>
+    </Modal>
+  );
+}
+
+const modalStyles = StyleSheet.create({
+  backdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  kav: { width: '100%', maxWidth: 480, alignItems: 'center' },
+  card: {
+    width: '100%',
+    maxWidth: 480,
+    backgroundColor: '#ffffff',
+    borderRadius: 18,
+    padding: 20,
+    gap: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 10,
+  },
+  title: { fontSize: 17, fontWeight: '700', color: '#111827' },
+  sub: { fontSize: 13, color: '#6b7280', lineHeight: 18 },
+  fieldLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#6b7280',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  input: {
+    height: 44,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    backgroundColor: '#f9fafb',
+    paddingHorizontal: 12,
+    fontSize: 15,
+    color: '#111827',
+  },
+  emptyText: { fontSize: 14, color: '#6b7280', paddingVertical: 12, textAlign: 'center' },
+  errorText: { fontSize: 13, color: '#DC2626' },
+  btnRow: { flexDirection: 'row', gap: 10, marginTop: 8 },
+  btnPrimary: {
+    flex: 1,
+    height: 44,
+    borderRadius: 10,
+    backgroundColor: '#5B8DEF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  btnPrimaryText: { color: '#ffffff', fontSize: 15, fontWeight: '700' },
+  btnSecondary: {
+    flex: 1,
+    height: 44,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    backgroundColor: '#ffffff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  btnSecondaryText: { color: '#374151', fontSize: 15, fontWeight: '600' },
+  langRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    backgroundColor: '#ffffff',
+  },
+  langRowActive: { borderColor: '#5B8DEF', backgroundColor: '#5B8DEF0D' },
+  langLabel: { fontSize: 14, color: '#111827' },
+  toggleRow: {
+    flexDirection: 'row',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    overflow: 'hidden',
+  },
+  toggleBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', backgroundColor: '#ffffff' },
+  toggleBtnActive: { backgroundColor: '#5B8DEF' },
+  toggleText: { fontSize: 14, fontWeight: '600', color: '#374151' },
+  toggleTextActive: { color: '#ffffff' },
+  warnBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 10,
+    borderRadius: 8,
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#F59E0B',
+  },
+  warnText: { flex: 1, fontSize: 12, color: '#78350F', lineHeight: 17 },
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 6,
+  },
+  switchLabel: { fontSize: 14, color: '#111827' },
+  previewBox: {
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: '#f3f4f6',
+  },
+  previewText: { fontSize: 13, color: '#374151', textAlign: 'center' },
+});
+
 // ─── Main screen ──────────────────────────────────────────────────────────────
 
 export default function RecordingDetailScreen() {
@@ -953,6 +1537,9 @@ export default function RecordingDetailScreen() {
   const [activeTab, setActiveTab] = useState<Tab>('notes');
   const [transcriptPage, setTranscriptPage] = useState(0);
   const [showExport, setShowExport] = useState(false);
+  const [showNameSpeakers, setShowNameSpeakers] = useState(false);
+  const [showRetranscribe, setShowRetranscribe] = useState(false);
+  const [showFindReplace, setShowFindReplace] = useState(false);
 
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prevStatusRef = useRef<string | null>(null);
@@ -1143,6 +1730,20 @@ export default function RecordingDetailScreen() {
         >
           <Ionicons name="share-outline" size={22} color="#5B8DEF" />
         </TouchableOpacity>
+        {recording.status === 'READY' && (
+          <TouchableOpacity
+            onPress={() =>
+              Alert.alert('Recording options', undefined, [
+                { text: 'Re-transcribe', onPress: () => setShowRetranscribe(true) },
+                { text: 'Find & Replace', onPress: () => setShowFindReplace(true) },
+                { text: 'Cancel', style: 'cancel' },
+              ])
+            }
+            style={styles.headerMenu}
+          >
+            <Ionicons name="ellipsis-horizontal" size={22} color="#5B8DEF" />
+          </TouchableOpacity>
+        )}
       </View>
 
       <ScrollView
@@ -1267,6 +1868,18 @@ export default function RecordingDetailScreen() {
                 />
 
                 <View style={[styles.tabContent, { paddingTop: 16 }]}>
+                  {/* Name Speakers action — only when diarization exists */}
+                  {speakerIds.length > 0 && (
+                    <TouchableOpacity
+                      style={styles.nameSpeakersBtn}
+                      onPress={() => setShowNameSpeakers(true)}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons name="people-outline" size={16} color="#5B8DEF" />
+                      <Text style={styles.nameSpeakersText}>Name Speakers</Text>
+                    </TouchableOpacity>
+                  )}
+
                   {/* Topic outline */}
                   {segments.length > 0 && (
                     <TopicOutline
@@ -1337,6 +1950,32 @@ export default function RecordingDetailScreen() {
         segments={segments}
         onClose={() => setShowExport(false)}
       />
+
+      {/* Name Speakers */}
+      <NameSpeakersModal
+        visible={showNameSpeakers}
+        recordingId={recording.id}
+        segments={segments}
+        onClose={() => setShowNameSpeakers(false)}
+        onSuccess={() => void loadRef.current?.(true)}
+      />
+
+      {/* Re-transcribe */}
+      <RetranscribeModal
+        visible={showRetranscribe}
+        recordingId={recording.id}
+        hasAudio={!!(recording as { s3Key?: string | null }).s3Key}
+        onClose={() => setShowRetranscribe(false)}
+        onSuccess={() => void loadRef.current?.(true)}
+      />
+
+      {/* Find & Replace */}
+      <FindReplaceModal
+        visible={showFindReplace}
+        recordingId={recording.id}
+        onClose={() => setShowFindReplace(false)}
+        onSuccess={() => void loadRef.current?.(true)}
+      />
     </View>
   );
 }
@@ -1360,6 +1999,21 @@ const styles = StyleSheet.create({
   },
   headerBack: { padding: 8 },
   headerShare: { padding: 8, marginLeft: 'auto' },
+  headerMenu: { padding: 8 },
+  nameSpeakersBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#5B8DEF40',
+    backgroundColor: '#5B8DEF10',
+    marginBottom: 8,
+  },
+  nameSpeakersText: { fontSize: 13, fontWeight: '600', color: '#5B8DEF' },
   titleBlock: { padding: 20, gap: 8 },
   title: { fontSize: 22, fontWeight: '700', letterSpacing: -0.3, color: '#111827' },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
