@@ -15,22 +15,23 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { trpc } from '../lib/trpc';
 import type { Recording } from '../lib/trpc';
 import { RecordingCard } from '../components/RecordingCard';
+import { useTheme } from '../lib/theme';
 import type { RecordingsStackParamList } from '../navigation/AppNavigator';
 
 type Nav = NativeStackNavigationProp<RecordingsStackParamList, 'RecordingsList'>;
 
 export default function RecordingsScreen() {
   const navigation = useNavigation<Nav>();
+  const { colors } = useTheme();
   const [search, setSearch] = useState('');
 
   const { data, isLoading, refetch, isRefetching } = trpc.recordings.list.useQuery({ limit: 50 });
 
-  const allRecordings: Recording[] = (data as any)?.recordings ?? (data as any)?.items ?? (Array.isArray(data) ? data : []);
+  const allRecordings: Recording[] =
+    (data as any)?.recordings ?? (data as any)?.items ?? (Array.isArray(data) ? data : []);
 
   const filtered = search.trim()
-    ? allRecordings.filter((r) =>
-        r.title.toLowerCase().includes(search.toLowerCase()),
-      )
+    ? allRecordings.filter(r => r.title.toLowerCase().includes(search.toLowerCase()))
     : allRecordings;
 
   const handlePress = useCallback(
@@ -39,14 +40,19 @@ export default function RecordingsScreen() {
   );
 
   return (
-    <View style={styles.screen}>
+    <View style={[styles.screen, { backgroundColor: colors.background }]}>
       {/* Search bar */}
-      <View style={styles.searchBar}>
-        <Ionicons name="search-outline" size={16} color="#6b7280" />
+      <View
+        style={[
+          styles.searchBar,
+          { borderColor: colors.border, backgroundColor: colors.surfaceMuted },
+        ]}
+      >
+        <Ionicons name="search-outline" size={16} color={colors.textMuted} />
         <TextInput
-          style={styles.searchInput}
+          style={[styles.searchInput, { color: colors.textPrimary }]}
           placeholder="Search recordings…"
-          placeholderTextColor="#9ca3af"
+          placeholderTextColor={colors.textMuted}
           value={search}
           onChangeText={setSearch}
           autoCapitalize="none"
@@ -54,34 +60,38 @@ export default function RecordingsScreen() {
         />
         {search.length > 0 && (
           <TouchableOpacity onPress={() => setSearch('')}>
-            <Ionicons name="close-circle" size={16} color="#9ca3af" />
+            <Ionicons name="close-circle" size={16} color={colors.textMuted} />
           </TouchableOpacity>
         )}
       </View>
 
       {isLoading ? (
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color="#5B8DEF" />
+          <ActivityIndicator size="large" color={colors.accent} />
         </View>
       ) : (
         <FlatList
           data={filtered}
-          keyExtractor={(r) => r.id}
+          keyExtractor={r => r.id}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
           refreshControl={
-            <RefreshControl refreshing={isRefetching} onRefresh={() => void refetch()} tintColor="#5B8DEF" />
+            <RefreshControl
+              refreshing={isRefetching}
+              onRefresh={() => void refetch()}
+              tintColor={colors.accent}
+            />
           }
           renderItem={({ item }) => (
             <RecordingCard recording={item} onPress={() => handlePress(item.id)} />
           )}
           ListEmptyComponent={
             <View style={styles.empty}>
-              <Ionicons name="mic-outline" size={48} color="#9ca3af" />
-              <Text style={styles.emptyTitle}>
+              <Ionicons name="mic-outline" size={48} color={colors.textMuted} />
+              <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
                 {search ? 'No results found' : 'No recordings yet'}
               </Text>
-              <Text style={styles.emptySubtitle}>
+              <Text style={[styles.emptySubtitle, { color: colors.textMuted }]}>
                 {search ? 'Try a different search.' : 'Record your first meeting to get started.'}
               </Text>
             </View>
@@ -93,7 +103,7 @@ export default function RecordingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#ffffff' },
+  screen: { flex: 1 },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -102,14 +112,12 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
-    backgroundColor: '#f9fafb',
     gap: 8,
   },
-  searchInput: { flex: 1, fontSize: 15, color: '#111827' },
+  searchInput: { flex: 1, fontSize: 15 },
   list: { paddingHorizontal: 12, paddingBottom: 24 },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   empty: { alignItems: 'center', paddingTop: 60, gap: 8 },
-  emptyTitle: { fontSize: 17, fontWeight: '600', color: '#374151' },
-  emptySubtitle: { fontSize: 14, color: '#6b7280', textAlign: 'center', paddingHorizontal: 32 },
+  emptyTitle: { fontSize: 17, fontWeight: '600' },
+  emptySubtitle: { fontSize: 14, textAlign: 'center', paddingHorizontal: 32 },
 });

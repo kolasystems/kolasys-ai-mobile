@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   View,
   Text,
@@ -7,11 +7,13 @@ import {
   TouchableOpacity,
   Alert,
   Linking,
+  Switch,
 } from 'react-native';
 import { useUser, useAuth } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Constants from 'expo-constants';
+import { useTheme, type ThemeColors } from '../lib/theme';
 
 function Row({
   icon,
@@ -19,29 +21,47 @@ function Row({
   value,
   onPress,
   destructive,
+  rightSlot,
+  colors,
 }: {
   icon: string;
   label: string;
   value?: string;
   onPress?: () => void;
   destructive?: boolean;
+  rightSlot?: React.ReactNode;
+  colors: ThemeColors;
 }) {
-  const color = destructive ? '#EF4444' : '#5B8DEF';
+  const accent = destructive ? colors.danger : colors.accent;
   return (
     <TouchableOpacity
-      style={styles.row}
+      style={[styles.row, { borderBottomColor: colors.border }]}
       onPress={onPress}
       disabled={!onPress}
       activeOpacity={0.7}
     >
-      <View style={[styles.rowIcon, { backgroundColor: color + '18' }]}>
-        <Ionicons name={icon as never} size={18} color={color} />
+      <View
+        style={[
+          styles.rowIcon,
+          { backgroundColor: destructive ? colors.danger + '1E' : colors.accentSoft },
+        ]}
+      >
+        <Ionicons name={icon as never} size={18} color={accent} />
       </View>
-      <Text style={[styles.rowLabel, destructive && { color: '#EF4444' }]}>{label}</Text>
-      {value ? (
-        <Text style={styles.rowValue}>{value}</Text>
+      <Text
+        style={[
+          styles.rowLabel,
+          { color: destructive ? colors.danger : colors.textPrimary },
+        ]}
+      >
+        {label}
+      </Text>
+      {rightSlot ? (
+        rightSlot
+      ) : value ? (
+        <Text style={[styles.rowValue, { color: colors.textSecondary }]}>{value}</Text>
       ) : onPress ? (
-        <Ionicons name="chevron-forward" size={16} color="#9ca3af" />
+        <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
       ) : null}
     </TouchableOpacity>
   );
@@ -51,10 +71,19 @@ export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const { user } = useUser();
   const { signOut } = useAuth();
+  const { colors, mode, isDark, toggleDark } = useTheme();
 
-  const fullName = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || user?.username || 'User';
+  const fullName =
+    [user?.firstName, user?.lastName].filter(Boolean).join(' ') ||
+    user?.username ||
+    'User';
   const email = user?.primaryEmailAddress?.emailAddress ?? '';
   const appVersion = (Constants.expoConfig?.version as string | undefined) ?? '1.0.0';
+
+  const themeStatus = useMemo(() => {
+    if (mode === 'system') return `System (${isDark ? 'Dark' : 'Light'})`;
+    return mode === 'dark' ? 'Dark' : 'Light';
+  }, [mode, isDark]);
 
   const handleSignOut = () => {
     Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
@@ -65,44 +94,100 @@ export default function SettingsScreen() {
 
   return (
     <ScrollView
-      style={styles.screen}
-      contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 24 }]}
+      style={[styles.screen, { backgroundColor: colors.background }]}
+      contentContainerStyle={[
+        styles.content,
+        { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 24 },
+      ]}
       showsVerticalScrollIndicator={false}
     >
       {/* Profile card */}
-      <View style={styles.profileCard}>
-        <View style={styles.avatar}>
+      <View
+        style={[
+          styles.profileCard,
+          { borderColor: colors.border, backgroundColor: colors.surface },
+        ]}
+      >
+        <View style={[styles.avatar, { backgroundColor: colors.accent }]}>
           <Text style={styles.avatarText}>{fullName.charAt(0).toUpperCase()}</Text>
         </View>
-        <View style={{ gap: 3 }}>
-          <Text style={styles.profileName}>{fullName}</Text>
-          <Text style={styles.profileEmail}>{email}</Text>
+        <View style={{ gap: 3, flex: 1 }}>
+          <Text style={[styles.profileName, { color: colors.textPrimary }]}>{fullName}</Text>
+          <Text style={[styles.profileEmail, { color: colors.textSecondary }]}>{email}</Text>
         </View>
+      </View>
+
+      {/* Appearance */}
+      <Text style={[styles.sectionHeader, { color: colors.textMuted }]}>APPEARANCE</Text>
+      <View
+        style={[
+          styles.section,
+          { borderColor: colors.border, backgroundColor: colors.surface },
+        ]}
+      >
+        <Row
+          icon={isDark ? 'moon' : 'sunny'}
+          label="Dark Mode"
+          value={themeStatus}
+          colors={colors}
+          rightSlot={
+            <Switch
+              value={isDark}
+              onValueChange={toggleDark}
+              trackColor={{ false: colors.border, true: colors.accent }}
+              thumbColor="#ffffff"
+              ios_backgroundColor={colors.border}
+            />
+          }
+        />
       </View>
 
       {/* Account */}
-      <Text style={styles.sectionHeader}>ACCOUNT</Text>
-      <View style={styles.section}>
-        <Row icon="globe-outline" label="Web App" value="app.kolasys.ai"
-          onPress={() => void Linking.openURL('https://app.kolasys.ai')} />
-        <Row icon="shield-checkmark-outline" label="Privacy Policy"
-          onPress={() => void Linking.openURL('https://kolasys.ai/privacy')} />
-        <Row icon="document-outline" label="Terms of Service"
-          onPress={() => void Linking.openURL('https://kolasys.ai/terms')} />
-        <Row icon="information-circle-outline" label="Version" value={appVersion} />
+      <Text style={[styles.sectionHeader, { color: colors.textMuted }]}>ACCOUNT</Text>
+      <View
+        style={[
+          styles.section,
+          { borderColor: colors.border, backgroundColor: colors.surface },
+        ]}
+      >
+        <Row
+          icon="globe-outline"
+          label="Web App"
+          value="app.kolasys.ai"
+          onPress={() => void Linking.openURL('https://app.kolasys.ai')}
+          colors={colors}
+        />
+        <Row
+          icon="shield-checkmark-outline"
+          label="Privacy Policy"
+          onPress={() => void Linking.openURL('https://kolasys.ai/privacy')}
+          colors={colors}
+        />
+        <Row
+          icon="document-outline"
+          label="Terms of Service"
+          onPress={() => void Linking.openURL('https://kolasys.ai/terms')}
+          colors={colors}
+        />
+        <Row icon="information-circle-outline" label="Version" value={appVersion} colors={colors} />
       </View>
 
       {/* Sign out */}
-      <Text style={styles.sectionHeader} />
-      <View style={styles.section}>
-        <Row icon="log-out-outline" label="Sign Out" onPress={handleSignOut} destructive />
+      <Text style={[styles.sectionHeader, { color: colors.textMuted }]} />
+      <View
+        style={[
+          styles.section,
+          { borderColor: colors.border, backgroundColor: colors.surface },
+        ]}
+      >
+        <Row icon="log-out-outline" label="Sign Out" onPress={handleSignOut} destructive colors={colors} />
       </View>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#ffffff' },
+  screen: { flex: 1 },
   content: { padding: 16, gap: 4 },
   profileCard: {
     flexDirection: 'row',
@@ -110,7 +195,6 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
     marginBottom: 20,
     gap: 14,
   },
@@ -118,13 +202,12 @@ const styles = StyleSheet.create({
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: '#5B8DEF',
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarText: { color: '#ffffff', fontSize: 22, fontWeight: '700' },
-  profileName: { fontSize: 17, fontWeight: '700', color: '#111827' },
-  profileEmail: { fontSize: 13, color: '#6b7280' },
+  profileName: { fontSize: 17, fontWeight: '700' },
+  profileEmail: { fontSize: 13 },
   sectionHeader: {
     fontSize: 11,
     fontWeight: '700',
@@ -133,12 +216,10 @@ const styles = StyleSheet.create({
     paddingLeft: 4,
     paddingTop: 12,
     paddingBottom: 6,
-    color: '#6b7280',
   },
   section: {
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
     overflow: 'hidden',
   },
   row: {
@@ -147,10 +228,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 13,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e5e7eb',
     gap: 12,
   },
   rowIcon: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  rowLabel: { flex: 1, fontSize: 15, color: '#111827' },
-  rowValue: { fontSize: 13, color: '#6b7280' },
+  rowLabel: { flex: 1, fontSize: 15 },
+  rowValue: { fontSize: 13 },
 });
