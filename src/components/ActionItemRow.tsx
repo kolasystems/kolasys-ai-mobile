@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '../lib/theme';
+import { Colors, useTheme } from '../lib/theme';
 import type { ActionItem } from '../lib/trpc';
 
 const PRIORITY_COLOR: Record<string, string> = {
@@ -17,23 +17,30 @@ interface Props {
 }
 
 export function ActionItemRow({ item, onToggle }: Props) {
+  const { colors } = useTheme();
   const isCompleted = item.status === 'COMPLETED' || item.status === 'CANCELLED';
   const priorityColor = PRIORITY_COLOR[item.priority] ?? Colors.low;
 
   return (
     <TouchableOpacity
-      style={styles.row}
+      style={[styles.row, { borderBottomColor: colors.border }]}
       onPress={() => onToggle?.(item.id, !isCompleted)}
       activeOpacity={0.7}
     >
-      <View style={[styles.checkbox, { borderColor: isCompleted ? Colors.ready : '#e5e7eb' }]}>
-        {isCompleted && <Ionicons name="checkmark" size={14} color={Colors.ready} />}
+      <View
+        style={[
+          styles.checkbox,
+          { borderColor: isCompleted ? colors.success : colors.borderStrong },
+        ]}
+      >
+        {isCompleted && <Ionicons name="checkmark" size={14} color={colors.success} />}
       </View>
       <View style={styles.content}>
         <Text
           style={[
             styles.title,
-            isCompleted && { textDecorationLine: 'line-through', color: '#6b7280' },
+            { color: colors.textPrimary },
+            isCompleted && { textDecorationLine: 'line-through', color: colors.textMuted },
           ]}
           numberOfLines={2}
         >
@@ -42,14 +49,14 @@ export function ActionItemRow({ item, onToggle }: Props) {
         <View style={styles.meta}>
           {item.assignee && (
             <View style={styles.metaItem}>
-              <Ionicons name="person-outline" size={11} color="#6b7280" />
-              <Text style={styles.metaText}>{item.assignee}</Text>
+              <Ionicons name="person-outline" size={11} color={colors.textMuted} />
+              <Text style={[styles.metaText, { color: colors.textMuted }]}>{item.assignee}</Text>
             </View>
           )}
           {item.dueDate && (
             <View style={styles.metaItem}>
-              <Ionicons name="calendar-outline" size={11} color="#6b7280" />
-              <Text style={styles.metaText}>
+              <Ionicons name="calendar-outline" size={11} color={colors.textMuted} />
+              <Text style={[styles.metaText, { color: colors.textMuted }]}>
                 {new Date(item.dueDate).toLocaleDateString('en-US', {
                   month: 'short',
                   day: 'numeric',
@@ -74,7 +81,6 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e5e7eb',
     gap: 12,
   },
   checkbox: {
@@ -94,7 +100,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     lineHeight: 20,
-    color: '#111827',
   },
   meta: {
     flexDirection: 'row',
@@ -108,7 +113,6 @@ const styles = StyleSheet.create({
   },
   metaText: {
     fontSize: 11,
-    color: '#6b7280',
   },
   priorityBadge: {
     paddingHorizontal: 8,

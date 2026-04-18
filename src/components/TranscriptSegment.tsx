@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { Colors } from '../lib/theme';
+import { Colors, useTheme } from '../lib/theme';
 import type { TranscriptSegment as Segment } from '../lib/trpc';
 
 const SPEAKER_COLORS = [
@@ -25,6 +25,7 @@ interface Props {
 }
 
 export function TranscriptSegmentRow({ segment, speakerLabels, speakerIndex = 0 }: Props) {
+  const { colors } = useTheme();
   const speakerColor = SPEAKER_COLORS[speakerIndex % SPEAKER_COLORS.length];
   const displayName = segment.speaker
     ? speakerLabels?.[segment.speaker] ?? segment.speaker
@@ -32,12 +33,14 @@ export function TranscriptSegmentRow({ segment, speakerLabels, speakerIndex = 0 
 
   return (
     <View style={styles.row}>
-      <Text style={styles.timestamp}>{formatTimestamp(segment.startTime)}</Text>
+      <Text style={[styles.timestamp, { color: colors.textMuted }]}>
+        {formatTimestamp(segment.startTime)}
+      </Text>
       <View style={styles.content}>
         {displayName && (
           <Text style={[styles.speaker, { color: speakerColor }]}>{displayName}</Text>
         )}
-        <Text style={styles.text}>{segment.text}</Text>
+        <Text style={[styles.text, { color: colors.textPrimary }]}>{segment.text}</Text>
       </View>
     </View>
   );
@@ -51,7 +54,6 @@ const styles = StyleSheet.create({
   },
   timestamp: {
     fontSize: 11,
-    color: '#9ca3af',
     fontVariant: ['tabular-nums'],
     marginTop: 2,
     width: 38,
@@ -70,6 +72,5 @@ const styles = StyleSheet.create({
   text: {
     fontSize: 14,
     lineHeight: 21,
-    color: '#111827',
   },
 });

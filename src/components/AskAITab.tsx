@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@clerk/clerk-expo';
+import { useTheme } from '../lib/theme';
 
 const ASK_URL = 'https://app.kolasys.ai/api/ai/ask';
 
@@ -60,6 +61,7 @@ function parseSSE(buffer: string): { events: any[]; remainder: string } {
 
 export function AskAITab({ recordingId }: { recordingId: string }) {
   const { getToken } = useAuth();
+  const { colors } = useTheme();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -161,7 +163,7 @@ export function AskAITab({ recordingId }: { recordingId: string }) {
 
   return (
     <KeyboardAvoidingView
-      style={styles.root}
+      style={[styles.root, { backgroundColor: colors.background }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
     >
@@ -173,11 +175,13 @@ export function AskAITab({ recordingId }: { recordingId: string }) {
       >
         {messages.length === 0 && !isLoading && (
           <View style={styles.empty}>
-            <View style={styles.emptyIcon}>
-              <Ionicons name="sparkles" size={22} color="#5B8DEF" />
+            <View style={[styles.emptyIcon, { backgroundColor: colors.accentSoft }]}>
+              <Ionicons name="sparkles" size={22} color={colors.accent} />
             </View>
-            <Text style={styles.emptyTitle}>Ask AI about this meeting</Text>
-            <Text style={styles.emptySub}>
+            <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
+              Ask AI about this meeting
+            </Text>
+            <Text style={[styles.emptySub, { color: colors.textSecondary }]}>
               Questions are answered using only this recording's transcript.
             </Text>
             <View style={styles.suggestions}>
@@ -188,10 +192,10 @@ export function AskAITab({ recordingId }: { recordingId: string }) {
               ].map((s) => (
                 <TouchableOpacity
                   key={s}
-                  style={styles.suggestion}
+                  style={[styles.suggestion, { backgroundColor: colors.surface, borderColor: colors.border }]}
                   onPress={() => void send(s)}
                 >
-                  <Text style={styles.suggestionText}>{s}</Text>
+                  <Text style={[styles.suggestionText, { color: colors.textSecondary }]}>{s}</Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -201,16 +205,30 @@ export function AskAITab({ recordingId }: { recordingId: string }) {
         {messages.map((m) => (
           <View
             key={m.id}
-            style={[styles.bubble, m.role === 'user' ? styles.bubbleUser : styles.bubbleAssistant]}
+            style={[
+              styles.bubble,
+              m.role === 'user'
+                ? { backgroundColor: colors.accent, alignSelf: 'flex-end', borderBottomRightRadius: 4 }
+                : { backgroundColor: colors.surfaceMuted, alignSelf: 'flex-start', borderBottomLeftRadius: 4 },
+            ]}
           >
-            <Text style={[styles.bubbleText, m.role === 'user' && { color: '#ffffff' }]}>
+            <Text
+              style={[
+                styles.bubbleText,
+                { color: m.role === 'user' ? '#ffffff' : colors.textPrimary },
+              ]}
+            >
               {m.content || (isLoading ? '...' : '')}
             </Text>
             {m.role === 'assistant' && m.sources && m.sources.length > 0 && (
-              <View style={styles.sources}>
-                <Text style={styles.sourcesLabel}>Sources</Text>
+              <View style={[styles.sources, { borderTopColor: colors.border }]}>
+                <Text style={[styles.sourcesLabel, { color: colors.textMuted }]}>Sources</Text>
                 {m.sources.map((src) => (
-                  <Text key={src.index} style={styles.sourceLine} numberOfLines={2}>
+                  <Text
+                    key={src.index}
+                    style={[styles.sourceLine, { color: colors.textSecondary }]}
+                    numberOfLines={2}
+                  >
                     [{src.index}] {src.chunkText}
                   </Text>
                 ))}
@@ -227,13 +245,18 @@ export function AskAITab({ recordingId }: { recordingId: string }) {
         )}
       </ScrollView>
 
-      <View style={styles.inputRow}>
+      <View
+        style={[
+          styles.inputRow,
+          { borderTopColor: colors.border, backgroundColor: colors.background },
+        ]}
+      >
         <TextInput
-          style={styles.input}
+          style={[styles.input, { backgroundColor: colors.surfaceMuted, color: colors.textPrimary }]}
           value={input}
           onChangeText={setInput}
           placeholder="Ask anything about this meeting..."
-          placeholderTextColor="#9ca3af"
+          placeholderTextColor={colors.textMuted}
           multiline
           editable={!isLoading}
           onSubmitEditing={submit}
@@ -243,7 +266,11 @@ export function AskAITab({ recordingId }: { recordingId: string }) {
         <TouchableOpacity
           onPress={submit}
           disabled={!input.trim() || isLoading}
-          style={[styles.sendBtn, (!input.trim() || isLoading) && { opacity: 0.4 }]}
+          style={[
+            styles.sendBtn,
+            { backgroundColor: colors.accent },
+            (!input.trim() || isLoading) && { opacity: 0.4 },
+          ]}
           activeOpacity={0.8}
         >
           {isLoading ? (

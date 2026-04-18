@@ -850,7 +850,8 @@ const exportStyles = StyleSheet.create({
 
 const PAGE_SIZE = 30;
 
-function BulletList({ items, colors }: { items: string[]; colors: ThemeColors }) {
+function BulletList({ items }: { items: string[] }) {
+  const { colors } = useTheme();
   if (!items?.length) return null;
   return (
     <View style={{ gap: 6 }}>
@@ -864,15 +865,8 @@ function BulletList({ items, colors }: { items: string[]; colors: ThemeColors })
   );
 }
 
-function NotesSectionBlock({
-  title,
-  children,
-  colors,
-}: {
-  title: string;
-  children: React.ReactNode;
-  colors: ThemeColors;
-}) {
+function NotesSectionBlock({ title, children }: { title: string; children: React.ReactNode }) {
+  const { colors } = useTheme();
   return (
     <View style={{ gap: 8 }}>
       <Text style={[notesStyles.sectionHeading, { color: colors.textPrimary }]}>{title}</Text>
@@ -926,15 +920,14 @@ function NotesTab({
   note,
   recordingId,
   getTokenRef,
-  colors,
   onSummaryRefined,
 }: {
   note: Note | null | undefined;
   recordingId: string;
   getTokenRef: React.MutableRefObject<() => Promise<string | null>>;
-  colors: ThemeColors;
   onSummaryRefined?: (summary: string) => void;
 }) {
+  const { colors } = useTheme();
   const [summaryOverride, setSummaryOverride] = useState<string | null>(null);
   const [isRefining, setIsRefining] = useState(false);
   const mdStyles = useMemo(() => buildMarkdownStyles(colors), [colors]);
@@ -1038,27 +1031,23 @@ function NotesTab({
       )}
 
       {hasKeyPoints && (
-        <NotesSectionBlock title="Key Points" colors={colors}>
-          <BulletList items={note.keyPoints!} colors={colors} />
+        <NotesSectionBlock title="Key Points">
+          <BulletList items={note.keyPoints!} />
         </NotesSectionBlock>
       )}
       {hasDecisions && (
-        <NotesSectionBlock title="Decisions" colors={colors}>
-          <BulletList items={note.decisions!} colors={colors} />
+        <NotesSectionBlock title="Decisions">
+          <BulletList items={note.decisions!} />
         </NotesSectionBlock>
       )}
       {hasNextSteps && (
-        <NotesSectionBlock title="Next Steps" colors={colors}>
-          <BulletList items={note.nextSteps!} colors={colors} />
+        <NotesSectionBlock title="Next Steps">
+          <BulletList items={note.nextSteps!} />
         </NotesSectionBlock>
       )}
       {hasSections &&
         note.sections.map((section: NoteSection) => (
-          <NotesSectionBlock
-            key={section.id}
-            title={section.heading ?? section.title ?? ''}
-            colors={colors}
-          >
+          <NotesSectionBlock key={section.id} title={section.heading ?? section.title ?? ''}>
             <Markdown style={mdStyles}>{section.content}</Markdown>
           </NotesSectionBlock>
         ))}
@@ -1682,7 +1671,7 @@ export default function RecordingDetailScreen() {
   const navigation = useNavigation<NavT>();
   const { getToken } = useAuth();
   const { id } = route.params;
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
 
   const [recording, setRecording] = useState<Recording | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -2025,7 +2014,6 @@ export default function RecordingDetailScreen() {
                 note={recording.note}
                 recordingId={recording.id}
                 getTokenRef={getTokenRef}
-                colors={colors}
               />
             )}
 

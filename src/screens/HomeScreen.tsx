@@ -18,14 +18,13 @@ import { useNavigation } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import * as Calendar from 'expo-calendar';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
 import { trpc } from '../lib/trpc';
 import { trpcGet, trpcPost } from '../lib/api';
 import type { Recording, ActionItem } from '../lib/trpc';
 import { StatusBadge } from '../components/StatusBadge';
 import type { TabParamList } from '../navigation/AppNavigator';
 import { detectReadyTransitions, useReadyStore } from '../lib/notifications';
-import { useTheme, type ThemeColors } from '../lib/theme';
+import { useTheme } from '../lib/theme';
 
 type Nav = BottomTabNavigationProp<TabParamList>;
 type HomeTab = 'feed' | 'tasks' | 'calendar';
@@ -72,19 +71,27 @@ function platformIcon(title: string, url?: string): string {
   return 'calendar-outline';
 }
 
-// ─── Feed Card (glass) ────────────────────────────────────────────────────────
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  const { colors } = useTheme();
+  return (
+    <Text
+      style={{
+        fontSize: 13,
+        fontWeight: '700',
+        color: colors.textMuted,
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+      }}
+    >
+      {children}
+    </Text>
+  );
+}
 
-function FeedCard({
-  recording,
-  onPress,
-  colors,
-  isDark,
-}: {
-  recording: Recording;
-  onPress: () => void;
-  colors: ThemeColors;
-  isDark: boolean;
-}) {
+// ─── Feed Card ────────────────────────────────────────────────────────────────
+
+function FeedCard({ recording, onPress }: { recording: Recording; onPress: () => void }) {
+  const { colors } = useTheme();
   const scale = useRef(new Animated.Value(1)).current;
 
   const handlePressIn = () =>
@@ -99,44 +106,42 @@ function FeedCard({
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
         activeOpacity={0.9}
+        style={[
+          feedCardStyles.wrap,
+          { backgroundColor: colors.surface, borderColor: colors.border },
+        ]}
       >
-        <BlurView
-          intensity={isDark ? 35 : 60}
-          tint={isDark ? 'dark' : 'light'}
-          style={[feedCardStyles.wrap, { borderColor: colors.border, backgroundColor: isDark ? colors.surface + 'CC' : '#FFFFFFCC' }]}
-        >
-          <View style={feedCardStyles.row}>
-            <View style={{ flex: 1, gap: 4 }}>
-              <Text style={[feedCardStyles.title, { color: colors.textPrimary }]} numberOfLines={2}>
-                {recording.title}
+        <View style={feedCardStyles.row}>
+          <View style={{ flex: 1, gap: 4 }}>
+            <Text style={[feedCardStyles.title, { color: colors.textPrimary }]} numberOfLines={2}>
+              {recording.title}
+            </Text>
+            <View style={feedCardStyles.meta}>
+              <Text style={[feedCardStyles.metaText, { color: colors.textMuted }]}>
+                {formatDateShort(recording.createdAt)}
               </Text>
-              <View style={feedCardStyles.meta}>
-                <Text style={[feedCardStyles.metaText, { color: colors.textMuted }]}>
-                  {formatDateShort(recording.createdAt)}
-                </Text>
-                {recording.duration != null && (
-                  <>
-                    <Text style={[feedCardStyles.dot, { color: colors.borderStrong }]}>·</Text>
-                    <Ionicons name="time-outline" size={12} color={colors.textMuted} />
-                    <Text style={[feedCardStyles.metaText, { color: colors.textMuted }]}>
-                      {formatDuration(recording.duration)}
-                    </Text>
-                  </>
-                )}
-              </View>
-            </View>
-            <View style={{ alignItems: 'flex-end', gap: 6 }}>
-              <StatusBadge status={recording.status} size="sm" createdAt={recording.createdAt} />
-              <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+              {recording.duration != null && (
+                <>
+                  <Text style={[feedCardStyles.dot, { color: colors.borderStrong }]}>·</Text>
+                  <Ionicons name="time-outline" size={12} color={colors.textMuted} />
+                  <Text style={[feedCardStyles.metaText, { color: colors.textMuted }]}>
+                    {formatDuration(recording.duration)}
+                  </Text>
+                </>
+              )}
             </View>
           </View>
-          {recording.status === 'READY' && (
-            <View style={[feedCardStyles.notesPill, { backgroundColor: colors.accentSoft }]}>
-              <Ionicons name="document-text-outline" size={13} color={colors.accent} />
-              <Text style={[feedCardStyles.notesText, { color: colors.accent }]}>Notes ready</Text>
-            </View>
-          )}
-        </BlurView>
+          <View style={{ alignItems: 'flex-end', gap: 6 }}>
+            <StatusBadge status={recording.status} size="sm" createdAt={recording.createdAt} />
+            <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+          </View>
+        </View>
+        {recording.status === 'READY' && (
+          <View style={[feedCardStyles.notesPill, { backgroundColor: colors.accentSoft }]}>
+            <Ionicons name="document-text-outline" size={13} color={colors.accent} />
+            <Text style={[feedCardStyles.notesText, { color: colors.accent }]}>Notes ready</Text>
+          </View>
+        )}
       </TouchableOpacity>
     </Animated.View>
   );
@@ -148,7 +153,6 @@ const feedCardStyles = StyleSheet.create({
     padding: 16,
     borderWidth: 1,
     gap: 10,
-    overflow: 'hidden',
   },
   row: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   title: { fontSize: 15, fontWeight: '600', lineHeight: 21 },
@@ -173,15 +177,13 @@ function FeedTab({
   recordings,
   isLoading,
   onCardPress,
-  colors,
-  isDark,
 }: {
   recordings: Recording[];
   isLoading: boolean;
   onCardPress: (id: string) => void;
-  colors: ThemeColors;
-  isDark: boolean;
 }) {
+  const { colors } = useTheme();
+
   if (isLoading) {
     return <ActivityIndicator color={colors.accent} style={{ marginTop: 32 }} />;
   }
@@ -190,9 +192,7 @@ function FeedTab({
     return (
       <View style={{ alignItems: 'center', paddingTop: 40, gap: 10 }}>
         <Ionicons name="mic-outline" size={40} color={colors.textMuted} />
-        <Text style={{ fontSize: 16, fontWeight: '600', color: colors.textPrimary }}>
-          No recordings yet
-        </Text>
+        <Text style={{ fontSize: 16, fontWeight: '600', color: colors.textPrimary }}>No recordings yet</Text>
         <Text style={{ fontSize: 14, color: colors.textMuted, textAlign: 'center', lineHeight: 20 }}>
           Tap &ldquo;Record&rdquo; to get started.
         </Text>
@@ -204,37 +204,29 @@ function FeedTab({
   const lastWeek = recordings.filter(r => weekGroup(r.createdAt) === 'last-week');
   const older = recordings.filter(r => weekGroup(r.createdAt) === 'older');
 
-  const sectionLabelStyle = {
-    fontSize: 13,
-    fontWeight: '700' as const,
-    color: colors.textMuted,
-    textTransform: 'uppercase' as const,
-    letterSpacing: 0.5,
-  };
-
   return (
     <View style={{ gap: 24 }}>
       {thisWeek.length > 0 && (
         <View style={{ gap: 12 }}>
-          <Text style={sectionLabelStyle}>This Week</Text>
+          <SectionLabel>This Week</SectionLabel>
           {thisWeek.map(r => (
-            <FeedCard key={r.id} recording={r} onPress={() => onCardPress(r.id)} colors={colors} isDark={isDark} />
+            <FeedCard key={r.id} recording={r} onPress={() => onCardPress(r.id)} />
           ))}
         </View>
       )}
       {lastWeek.length > 0 && (
         <View style={{ gap: 12 }}>
-          <Text style={sectionLabelStyle}>Last Week</Text>
+          <SectionLabel>Last Week</SectionLabel>
           {lastWeek.map(r => (
-            <FeedCard key={r.id} recording={r} onPress={() => onCardPress(r.id)} colors={colors} isDark={isDark} />
+            <FeedCard key={r.id} recording={r} onPress={() => onCardPress(r.id)} />
           ))}
         </View>
       )}
       {older.length > 0 && (
         <View style={{ gap: 12 }}>
-          <Text style={sectionLabelStyle}>Older</Text>
+          <SectionLabel>Older</SectionLabel>
           {older.map(r => (
-            <FeedCard key={r.id} recording={r} onPress={() => onCardPress(r.id)} colors={colors} isDark={isDark} />
+            <FeedCard key={r.id} recording={r} onPress={() => onCardPress(r.id)} />
           ))}
         </View>
       )}
@@ -244,7 +236,8 @@ function FeedTab({
 
 // ─── Tasks Tab ────────────────────────────────────────────────────────────────
 
-function PriorityBadge({ priority, colors }: { priority: string; colors: ThemeColors }) {
+function PriorityBadge({ priority }: { priority: string }) {
+  const { colors } = useTheme();
   const map: Record<string, { bg: string; text: string; label: string }> = {
     URGENT: { bg: '#FEE2E2', text: '#DC2626', label: 'Urgent' },
     HIGH:   { bg: '#FEF3C7', text: '#D97706', label: 'High' },
@@ -262,19 +255,15 @@ function PriorityBadge({ priority, colors }: { priority: string; colors: ThemeCo
 function TaskItem({
   item,
   onToggle,
-  colors,
 }: {
   item: ActionItem;
   onToggle: (id: string, done: boolean) => void;
-  colors: ThemeColors;
 }) {
+  const { colors } = useTheme();
   const isDone = item.status === 'COMPLETED' || item.status === 'CANCELLED';
+
   return (
-    <TouchableOpacity
-      style={taskStyles.item}
-      onPress={() => onToggle(item.id, !isDone)}
-      activeOpacity={0.75}
-    >
+    <TouchableOpacity style={taskStyles.item} onPress={() => onToggle(item.id, !isDone)} activeOpacity={0.75}>
       <View
         style={[
           taskStyles.check,
@@ -301,14 +290,13 @@ function TaskItem({
             )}
             {item.dueDate && (
               <Text style={[taskStyles.meta, { color: colors.textMuted }]}>
-                Due{' '}
-                {new Date(item.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                Due {new Date(item.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
               </Text>
             )}
           </View>
         )}
       </View>
-      <PriorityBadge priority={item.priority} colors={colors} />
+      <PriorityBadge priority={item.priority} />
     </TouchableOpacity>
   );
 }
@@ -328,14 +316,13 @@ function ExpandedSection({
   getTokenRef,
   onToggle,
   onNavigate,
-  colors,
 }: {
   recording: Recording;
   getTokenRef: React.MutableRefObject<() => Promise<string | null>>;
   onToggle: (recordingId: string, actionId: string, done: boolean) => void;
   onNavigate: (id: string) => void;
-  colors: ThemeColors;
 }) {
+  const { colors } = useTheme();
   const [items, setItems] = useState<ActionItem[] | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -370,12 +357,10 @@ function ExpandedSection({
   return (
     <View style={{ paddingHorizontal: 16, paddingBottom: 8 }}>
       {items.map(item => (
-        <TaskItem key={item.id} item={item} onToggle={(id, done) => onToggle(recording.id, id, done)} colors={colors} />
+        <TaskItem key={item.id} item={item} onToggle={(id, done) => onToggle(recording.id, id, done)} />
       ))}
       <TouchableOpacity onPress={() => onNavigate(recording.id)} style={{ paddingVertical: 8 }}>
-        <Text style={{ fontSize: 13, color: colors.accent, fontWeight: '600' }}>
-          Open full recording →
-        </Text>
+        <Text style={{ fontSize: 13, color: colors.accent, fontWeight: '600' }}>Open full recording →</Text>
       </TouchableOpacity>
     </View>
   );
@@ -386,14 +371,13 @@ function TasksTab({
   isLoading,
   getTokenRef,
   onNavigate,
-  colors,
 }: {
   recordings: Recording[];
   isLoading: boolean;
   getTokenRef: React.MutableRefObject<() => Promise<string | null>>;
   onNavigate: (id: string) => void;
-  colors: ThemeColors;
 }) {
+  const { colors } = useTheme();
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   const withNotes = recordings.filter(r => r.status === 'READY');
@@ -413,9 +397,7 @@ function TasksTab({
     return (
       <View style={{ alignItems: 'center', paddingTop: 40, gap: 10 }}>
         <Ionicons name="checkmark-circle-outline" size={40} color={colors.textMuted} />
-        <Text style={{ fontSize: 16, fontWeight: '600', color: colors.textPrimary }}>
-          No tasks yet
-        </Text>
+        <Text style={{ fontSize: 16, fontWeight: '600', color: colors.textPrimary }}>No tasks yet</Text>
         <Text style={{ fontSize: 14, color: colors.textMuted, textAlign: 'center', lineHeight: 20 }}>
           Action items extracted from your meetings will appear here.
         </Text>
@@ -463,7 +445,6 @@ function TasksTab({
                 getTokenRef={getTokenRef}
                 onToggle={handleToggle}
                 onNavigate={onNavigate}
-                colors={colors}
               />
             )}
           </View>
@@ -497,13 +478,12 @@ function CalendarEventCard({
   event,
   botEnabled,
   onToggle,
-  colors,
 }: {
   event: CalEvent;
   botEnabled: boolean;
   onToggle: (id: string, value: boolean) => void;
-  colors: ThemeColors;
 }) {
+  const { colors } = useTheme();
   const icon = platformIcon(event.title, event.url);
   const duration = Math.round((event.endDate.getTime() - event.startDate.getTime()) / 60_000);
   const now = new Date();
@@ -590,7 +570,8 @@ const calStyles = StyleSheet.create({
   nowBadgeText: { fontSize: 11, color: '#fff', fontWeight: '700' },
 });
 
-function CalendarTab({ colors }: { colors: ThemeColors }) {
+function CalendarTab() {
+  const { colors } = useTheme();
   const [status, setStatus] = useState<'unknown' | 'granted' | 'denied'>('unknown');
   const [events, setEvents] = useState<CalEvent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -656,7 +637,12 @@ function CalendarTab({ colors }: { colors: ThemeColors }) {
         <Text style={{ fontSize: 16, fontWeight: '600', color: colors.textPrimary }}>
           Calendar access needed
         </Text>
-        <Text style={{ fontSize: 14, color: colors.textMuted, textAlign: 'center', lineHeight: 20, paddingHorizontal: 20 }}>
+        <Text
+          style={{
+            fontSize: 14, color: colors.textMuted,
+            textAlign: 'center', lineHeight: 20, paddingHorizontal: 20,
+          }}
+        >
           Allow calendar access in Settings to see your upcoming meetings.
         </Text>
       </View>
@@ -684,14 +670,6 @@ function CalendarTab({ colors }: { colors: ThemeColors }) {
     byDate[key].push(e);
   });
 
-  const sectionLabelStyle = {
-    fontSize: 13,
-    fontWeight: '700' as const,
-    color: colors.textMuted,
-    textTransform: 'uppercase' as const,
-    letterSpacing: 0.5,
-  };
-
   return (
     <View style={{ gap: 24 }}>
       {Object.entries(byDate).map(([dateKey, dayEvents]) => {
@@ -703,14 +681,13 @@ function CalendarTab({ colors }: { colors: ThemeColors }) {
 
         return (
           <View key={dateKey} style={{ gap: 12 }}>
-            <Text style={sectionLabelStyle}>{label}</Text>
+            <SectionLabel>{label}</SectionLabel>
             {dayEvents.map(ev => (
               <CalendarEventCard
                 key={ev.id}
                 event={ev}
                 botEnabled={botToggles[ev.id] ?? false}
                 onToggle={handleBotToggle}
-                colors={colors}
               />
             ))}
           </View>
@@ -727,7 +704,7 @@ export default function HomeScreen() {
   const { getToken } = useAuth();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<Nav>();
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
   const [activeTab, setActiveTab] = useState<HomeTab>('feed');
 
   const firstName = user?.firstName ?? user?.username ?? 'there';
@@ -768,120 +745,111 @@ export default function HomeScreen() {
   ];
 
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: colors.background }}
-      contentContainerStyle={{ paddingBottom: 40 }}
-      showsVerticalScrollIndicator={false}
-      refreshControl={
-        <RefreshControl
-          refreshing={isRefetching}
-          onRefresh={() => void refetch()}
-          tintColor={colors.accent}
-        />
-      }
-    >
-      {/* Gradient Header */}
-      <LinearGradient
-        colors={[colors.gradientStart, colors.gradientEnd]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={[styles.headerGradient, { paddingTop: insets.top + 16 }]}
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <ScrollView
+        style={{ flex: 1, backgroundColor: colors.background }}
+        contentContainerStyle={{ paddingBottom: 40 }}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefetching}
+            onRefresh={() => void refetch()}
+            tintColor={colors.accent}
+          />
+        }
       >
-        <View style={styles.headerRow}>
-          <View>
-            <Text style={styles.greeting}>Hello, {firstName}</Text>
-            <Text style={styles.greetingSub}>Your meetings at a glance</Text>
-          </View>
-          <TouchableOpacity
-            style={styles.recordBtn}
-            onPress={() => navigation.navigate('Record')}
-            activeOpacity={0.85}
-          >
-            <Ionicons name="mic" size={18} color={colors.accent} />
-            <Text style={[styles.recordBtnText, { color: colors.accent }]}>Record</Text>
-          </TouchableOpacity>
-        </View>
-      </LinearGradient>
-
-      <View style={styles.content}>
-        {/* Ready banner */}
-        {readyQueue.map(item => (
-          <TouchableOpacity
-            key={item.id}
-            style={[styles.readyBanner, { backgroundColor: colors.success }]}
-            activeOpacity={0.85}
-            onPress={() => {
-              dismissReady(item.id);
-              handleCardPress(item.id);
-            }}
-          >
-            <View style={styles.readyIcon}>
-              <Ionicons name="checkmark-circle" size={20} color="#ffffff" />
+        {/* Gradient Header */}
+        <LinearGradient
+          colors={[colors.gradientStart, colors.gradientEnd]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[styles.headerGradient, { paddingTop: insets.top + 16 }]}
+        >
+          <View style={styles.headerRow}>
+            <View>
+              <Text style={styles.greeting}>Hello, {firstName}</Text>
+              <Text style={styles.greetingSub}>Your meetings at a glance</Text>
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.readyTitle}>Notes are ready</Text>
-              <Text style={styles.readySub} numberOfLines={1}>{item.title}</Text>
-            </View>
-            <TouchableOpacity onPress={() => dismissReady(item.id)} hitSlop={10} style={styles.readyClose}>
-              <Ionicons name="close" size={16} color="#ffffffcc" />
+            <TouchableOpacity
+              style={styles.recordBtn}
+              onPress={() => navigation.navigate('Record')}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="mic" size={18} color={colors.accent} />
+              <Text style={[styles.recordBtnText, { color: colors.accent }]}>Record</Text>
             </TouchableOpacity>
-          </TouchableOpacity>
-        ))}
+          </View>
+        </LinearGradient>
 
-        {/* Tabs */}
-        <View style={[styles.tabBar, { backgroundColor: colors.surfaceMuted }]}>
-          {tabs.map(t => {
-            const active = activeTab === t.key;
-            return (
-              <TouchableOpacity
-                key={t.key}
-                style={[
-                  styles.tabItem,
-                  active && { backgroundColor: colors.surface },
-                ]}
-                onPress={() => setActiveTab(t.key)}
-                activeOpacity={0.7}
-              >
-                <Ionicons
-                  name={t.icon as never}
-                  size={16}
-                  color={active ? colors.accent : colors.textMuted}
-                />
-                <Text
-                  style={[
-                    styles.tabLabel,
-                    { color: active ? colors.accent : colors.textMuted, fontWeight: active ? '700' : '500' },
-                  ]}
-                >
-                  {t.label}
-                </Text>
+        <View style={styles.content}>
+          {/* Ready banner */}
+          {readyQueue.map(item => (
+            <TouchableOpacity
+              key={item.id}
+              style={[styles.readyBanner, { backgroundColor: colors.success }]}
+              activeOpacity={0.85}
+              onPress={() => {
+                dismissReady(item.id);
+                handleCardPress(item.id);
+              }}
+            >
+              <View style={styles.readyIcon}>
+                <Ionicons name="checkmark-circle" size={20} color="#ffffff" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.readyTitle}>Notes are ready</Text>
+                <Text style={styles.readySub} numberOfLines={1}>{item.title}</Text>
+              </View>
+              <TouchableOpacity onPress={() => dismissReady(item.id)} hitSlop={10} style={styles.readyClose}>
+                <Ionicons name="close" size={16} color="#ffffffcc" />
               </TouchableOpacity>
-            );
-          })}
-        </View>
+            </TouchableOpacity>
+          ))}
 
-        {/* Tab content */}
-        {activeTab === 'feed' && (
-          <FeedTab
-            recordings={recordings}
-            isLoading={isLoading}
-            onCardPress={handleCardPress}
-            colors={colors}
-            isDark={isDark}
-          />
-        )}
-        {activeTab === 'tasks' && (
-          <TasksTab
-            recordings={recordings}
-            isLoading={isLoading}
-            getTokenRef={getTokenRef}
-            onNavigate={handleCardPress}
-            colors={colors}
-          />
-        )}
-        {activeTab === 'calendar' && <CalendarTab colors={colors} />}
-      </View>
-    </ScrollView>
+          {/* Tabs */}
+          <View style={[styles.tabBar, { backgroundColor: colors.surfaceMuted }]}>
+            {tabs.map(t => {
+              const active = activeTab === t.key;
+              return (
+                <TouchableOpacity
+                  key={t.key}
+                  style={[styles.tabItem, active && { backgroundColor: colors.surface }]}
+                  onPress={() => setActiveTab(t.key)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons
+                    name={t.icon as never}
+                    size={16}
+                    color={active ? colors.accent : colors.textMuted}
+                  />
+                  <Text
+                    style={[
+                      styles.tabLabel,
+                      { color: active ? colors.accent : colors.textMuted, fontWeight: active ? '700' : '500' },
+                    ]}
+                  >
+                    {t.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {activeTab === 'feed' && (
+            <FeedTab recordings={recordings} isLoading={isLoading} onCardPress={handleCardPress} />
+          )}
+          {activeTab === 'tasks' && (
+            <TasksTab
+              recordings={recordings}
+              isLoading={isLoading}
+              getTokenRef={getTokenRef}
+              onNavigate={handleCardPress}
+            />
+          )}
+          {activeTab === 'calendar' && <CalendarTab />}
+        </View>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -892,11 +860,7 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
   },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
+  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   greeting: { fontSize: 26, fontWeight: '800', color: '#ffffff', letterSpacing: -0.4 },
   greetingSub: { fontSize: 13, color: 'rgba(255,255,255,0.75)', marginTop: 2 },
   recordBtn: {
