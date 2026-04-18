@@ -16,7 +16,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useTheme } from '../lib/theme';
+import Markdown from 'react-native-markdown-display';
+import { useTheme, type ThemeColors } from '../lib/theme';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -849,36 +850,136 @@ const exportStyles = StyleSheet.create({
 
 const PAGE_SIZE = 30;
 
-function BulletList({ items }: { items: string[] }) {
+function BulletList({ items, colors }: { items: string[]; colors: ThemeColors }) {
   if (!items?.length) return null;
   return (
     <View style={{ gap: 6 }}>
       {items.map((item, i) => (
         <View key={i} style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-start' }}>
-          <Text style={{ color: '#5B8DEF', marginTop: 3, fontSize: 12 }}>●</Text>
-          <Text style={{ flex: 1, fontSize: 14, lineHeight: 21, color: '#374151' }}>{item}</Text>
+          <Text style={{ color: colors.accent, marginTop: 3, fontSize: 12 }}>●</Text>
+          <Text style={{ flex: 1, fontSize: 14, lineHeight: 21, color: colors.textPrimary }}>{item}</Text>
         </View>
       ))}
     </View>
   );
 }
 
-function NotesSectionBlock({ title, children }: { title: string; children: React.ReactNode }) {
+function NotesSectionBlock({
+  title,
+  children,
+  colors,
+}: {
+  title: string;
+  children: React.ReactNode;
+  colors: ThemeColors;
+}) {
   return (
     <View style={{ gap: 8 }}>
-      <Text style={notesStyles.sectionHeading}>{title}</Text>
+      <Text style={[notesStyles.sectionHeading, { color: colors.textPrimary }]}>{title}</Text>
       {children}
     </View>
   );
 }
 
-function NotesTab({ note }: { note: Note | null | undefined }) {
+function buildMarkdownStyles(colors: ThemeColors): Record<string, object> {
+  return {
+    body: { color: colors.textPrimary, fontSize: 14, lineHeight: 22 },
+    paragraph: { color: colors.textPrimary, marginTop: 0, marginBottom: 8 },
+    strong: { color: colors.textPrimary, fontWeight: '600' },
+    em: { color: colors.textPrimary, fontStyle: 'italic' },
+    bullet_list: { marginLeft: 8 },
+    ordered_list: { marginLeft: 8 },
+    list_item: { color: colors.textPrimary, marginBottom: 4 },
+    heading1: { color: colors.textPrimary, fontSize: 17, fontWeight: '700', marginBottom: 6 },
+    heading2: { color: colors.textPrimary, fontSize: 16, fontWeight: '700', marginBottom: 6 },
+    heading3: { color: colors.textPrimary, fontSize: 15, fontWeight: '600', marginBottom: 4 },
+    code_inline: {
+      backgroundColor: colors.surfaceMuted,
+      color: colors.textPrimary,
+      paddingHorizontal: 4,
+      paddingVertical: 2,
+      borderRadius: 4,
+      fontFamily: 'Menlo',
+      fontSize: 13,
+    },
+    fence: {
+      backgroundColor: colors.surfaceMuted,
+      color: colors.textPrimary,
+      padding: 10,
+      borderRadius: 8,
+      fontFamily: 'Menlo',
+      fontSize: 13,
+    },
+    link: { color: colors.accent },
+    hr: { backgroundColor: colors.border, height: 1 },
+    blockquote: {
+      borderLeftWidth: 3,
+      borderLeftColor: colors.accent,
+      paddingLeft: 10,
+      backgroundColor: 'transparent',
+      color: colors.textSecondary,
+    },
+  };
+}
+
+function NotesTab({
+  note,
+  recordingId,
+  getTokenRef,
+  colors,
+  onSummaryRefined,
+}: {
+  note: Note | null | undefined;
+  recordingId: string;
+  getTokenRef: React.MutableRefObject<() => Promise<string | null>>;
+  colors: ThemeColors;
+  onSummaryRefined?: (summary: string) => void;
+}) {
+  const [summaryOverride, setSummaryOverride] = useState<string | null>(null);
+  const [isRefining, setIsRefining] = useState(false);
+  const mdStyles = useMemo(() => buildMarkdownStyles(colors), [colors]);
+
+  // Reset override whenever the note changes (e.g. a reload after retranscribe)
+  useEffect(() => {
+    setSummaryOverride(null);
+  }, [note?.id, note?.summary]);
+
+  const runRefine = async (mode: 'condense' | 'elaborate') => {
+    setIsRefining(true);
+    try {
+      const token = await getTokenRef.current();
+      const result = await trpcPost<{ summary: string }>(
+        'recordings.refineSummary',
+        { recordingId, mode },
+        token,
+      );
+      if (result?.summary) {
+        setSummaryOverride(result.summary);
+        onSummaryRefined?.(result.summary);
+      }
+    } catch (err) {
+      Alert.alert('Refine failed', err instanceof Error ? err.message : 'Unknown error.');
+    } finally {
+      setIsRefining(false);
+    }
+  };
+
+  const handleRefinePress = () => {
+    Alert.alert('Refine Summary', 'How should the summary change?', [
+      { text: 'Condense', onPress: () => void runRefine('condense') },
+      { text: 'Elaborate', onPress: () => void runRefine('elaborate') },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  };
+
   if (!note) {
     return (
       <View style={[notesStyles.tabContent, { alignItems: 'center', paddingTop: 40, gap: 10 }]}>
-        <Ionicons name="document-text-outline" size={36} color="#9ca3af" />
-        <Text style={{ fontSize: 15, fontWeight: '600', color: '#374151' }}>Notes not yet available</Text>
-        <Text style={{ fontSize: 13, color: '#6b7280', textAlign: 'center', lineHeight: 20 }}>
+        <Ionicons name="document-text-outline" size={36} color={colors.textMuted} />
+        <Text style={{ fontSize: 15, fontWeight: '600', color: colors.textPrimary }}>
+          Notes not yet available
+        </Text>
+        <Text style={{ fontSize: 13, color: colors.textSecondary, textAlign: 'center', lineHeight: 20 }}>
           Notes are generated after transcription completes.{'\n'}Pull down to refresh.
         </Text>
       </View>
@@ -889,44 +990,78 @@ function NotesTab({ note }: { note: Note | null | undefined }) {
   const hasDecisions = !!note.decisions?.length;
   const hasNextSteps = !!note.nextSteps?.length;
   const hasSections = !!note.sections?.length;
-  const hasAnything = note.summary || hasKeyPoints || hasDecisions || hasNextSteps || hasSections;
+  const summary = summaryOverride ?? note.summary ?? '';
+  const hasSummary = !!summary;
+  const hasAnything = hasSummary || hasKeyPoints || hasDecisions || hasNextSteps || hasSections;
 
   if (!hasAnything) {
     return (
       <View style={[notesStyles.tabContent, { alignItems: 'center', paddingTop: 40 }]}>
-        <Text style={{ fontSize: 14, color: '#6b7280' }}>No note content found.</Text>
+        <Text style={{ fontSize: 14, color: colors.textSecondary }}>No note content found.</Text>
       </View>
     );
   }
 
   return (
     <View style={notesStyles.tabContent}>
-      {!!note.summary && (
-        <View style={notesStyles.summaryCard}>
-          <Text style={notesStyles.summaryLabel}>Summary</Text>
-          <Text style={notesStyles.summaryText}>{note.summary}</Text>
+      {hasSummary && (
+        <View style={{ gap: 10 }}>
+          <View
+            style={[
+              notesStyles.summaryCard,
+              { borderColor: colors.accent + '40', backgroundColor: colors.accent + '12' },
+            ]}
+          >
+            <Text style={[notesStyles.summaryLabel, { color: colors.accent }]}>Summary</Text>
+            <Markdown style={mdStyles}>{summary}</Markdown>
+          </View>
+
+          <TouchableOpacity
+            onPress={handleRefinePress}
+            disabled={isRefining}
+            activeOpacity={0.8}
+            style={[
+              notesStyles.refineBtn,
+              { borderColor: colors.border, backgroundColor: colors.surface, opacity: isRefining ? 0.6 : 1 },
+            ]}
+          >
+            {isRefining ? (
+              <ActivityIndicator size="small" color={colors.accent} />
+            ) : (
+              <Text style={[notesStyles.refineEmoji, { color: colors.accent }]}>✨</Text>
+            )}
+            <Text style={[notesStyles.refineText, { color: colors.accent }]}>
+              {isRefining ? 'Refining…' : 'Refine Summary'}
+            </Text>
+          </TouchableOpacity>
         </View>
       )}
+
       {hasKeyPoints && (
-        <NotesSectionBlock title="Key Points">
-          <BulletList items={note.keyPoints!} />
+        <NotesSectionBlock title="Key Points" colors={colors}>
+          <BulletList items={note.keyPoints!} colors={colors} />
         </NotesSectionBlock>
       )}
       {hasDecisions && (
-        <NotesSectionBlock title="Decisions">
-          <BulletList items={note.decisions!} />
+        <NotesSectionBlock title="Decisions" colors={colors}>
+          <BulletList items={note.decisions!} colors={colors} />
         </NotesSectionBlock>
       )}
       {hasNextSteps && (
-        <NotesSectionBlock title="Next Steps">
-          <BulletList items={note.nextSteps!} />
+        <NotesSectionBlock title="Next Steps" colors={colors}>
+          <BulletList items={note.nextSteps!} colors={colors} />
         </NotesSectionBlock>
       )}
-      {hasSections && note.sections.map((section: NoteSection) => (
-        <NotesSectionBlock key={section.id} title={section.heading ?? section.title ?? ''}>
-          <Text style={notesStyles.sectionContent}>{section.content}</Text>
-        </NotesSectionBlock>
-      ))}
+      {hasSections &&
+        note.sections.map((section: NoteSection) => (
+          <NotesSectionBlock
+            key={section.id}
+            title={section.heading ?? section.title ?? ''}
+            colors={colors}
+          >
+            <Markdown style={mdStyles}>{section.content}</Markdown>
+          </NotesSectionBlock>
+        ))}
     </View>
   );
 }
@@ -934,14 +1069,30 @@ function NotesTab({ note }: { note: Note | null | undefined }) {
 const notesStyles = StyleSheet.create({
   tabContent: { padding: 20, gap: 20 },
   summaryCard: {
-    padding: 14, borderRadius: 12,
-    borderWidth: 1, borderColor: '#5B8DEF30',
-    backgroundColor: '#5B8DEF0D', gap: 6,
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 6,
   },
-  summaryLabel: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5, color: '#5B8DEF' },
-  summaryText: { fontSize: 14, lineHeight: 21, color: '#111827' },
-  sectionHeading: { fontSize: 15, fontWeight: '700', color: '#111827' },
-  sectionContent: { fontSize: 14, lineHeight: 21, color: '#6b7280' },
+  summaryLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  sectionHeading: { fontSize: 15, fontWeight: '700' },
+  refineBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  refineEmoji: { fontSize: 14 },
+  refineText: { fontSize: 13, fontWeight: '700' },
 });
 
 // ─── Name Speakers Modal ──────────────────────────────────────────────────────
@@ -1869,7 +2020,14 @@ export default function RecordingDetailScreen() {
               ))}
             </View>
 
-            {activeTab === 'notes' && <NotesTab note={recording.note} />}
+            {activeTab === 'notes' && (
+              <NotesTab
+                note={recording.note}
+                recordingId={recording.id}
+                getTokenRef={getTokenRef}
+                colors={colors}
+              />
+            )}
 
             {activeTab === 'transcript' && (
               <View>
