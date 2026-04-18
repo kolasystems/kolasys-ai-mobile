@@ -10,6 +10,7 @@ import Constants from 'expo-constants';
 
 import { tokenCache } from './src/lib/auth';
 import { TRPCProvider } from './src/lib/trpc';
+import { ThemeProvider, useTheme } from './src/lib/theme';
 import { initNotifications } from './src/lib/notifications';
 import AppNavigator from './src/navigation/AppNavigator';
 import SignInScreen from './src/screens/SignInScreen';
@@ -20,13 +21,14 @@ const CLERK_PUBLISHABLE_KEY =
 
 function RootNavigator() {
   const { isSignedIn, isLoaded } = useAuth();
+  const { colors } = useTheme();
   useEffect(() => {
     if (isSignedIn) void initNotifications();
   }, [isSignedIn]);
   if (!isLoaded) {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator size="large" color="#5B8DEF" />
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background }}>
+        <ActivityIndicator size="large" color={colors.accent} />
       </View>
     );
   }
@@ -37,10 +39,11 @@ function RootNavigator() {
 }
 
 function AuthenticatedApp() {
+  const { isDark } = useTheme();
   return (
     <TRPCProvider>
       <RootNavigator />
-      <StatusBar style="dark" />
+      <StatusBar style={isDark ? 'light' : 'dark'} />
     </TRPCProvider>
   );
 }
@@ -48,9 +51,11 @@ function AuthenticatedApp() {
 export default function App() {
   return (
     <SafeAreaProvider>
-      <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY} tokenCache={tokenCache}>
-        <AuthenticatedApp />
-      </ClerkProvider>
+      <ThemeProvider>
+        <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY} tokenCache={tokenCache}>
+          <AuthenticatedApp />
+        </ClerkProvider>
+      </ThemeProvider>
     </SafeAreaProvider>
   );
 }

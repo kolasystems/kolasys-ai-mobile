@@ -15,6 +15,8 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useTheme } from '../lib/theme';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -1529,6 +1531,7 @@ export default function RecordingDetailScreen() {
   const navigation = useNavigation<NavT>();
   const { getToken } = useAuth();
   const { id } = route.params;
+  const { colors, isDark } = useTheme();
 
   const [recording, setRecording] = useState<Recording | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -1717,18 +1720,15 @@ export default function RecordingDetailScreen() {
   speakerIds.forEach((sid, i) => { speakerIndexMap[sid] = i; });
 
   return (
-    <View style={styles.screen}>
+    <View style={[styles.screen, { backgroundColor: colors.background }]}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerBack}>
-          <Ionicons name="chevron-back" size={24} color="#111827" />
+          <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
         <StatusBadge status={recording.status} size="sm" createdAt={recording.createdAt} />
-        <TouchableOpacity
-          onPress={() => setShowExport(true)}
-          style={styles.headerShare}
-        >
-          <Ionicons name="share-outline" size={22} color="#5B8DEF" />
+        <TouchableOpacity onPress={() => setShowExport(true)} style={styles.headerShare}>
+          <Ionicons name="share-outline" size={22} color={colors.accent} />
         </TouchableOpacity>
         {recording.status === 'READY' && (
           <TouchableOpacity
@@ -1741,7 +1741,7 @@ export default function RecordingDetailScreen() {
             }
             style={styles.headerMenu}
           >
-            <Ionicons name="ellipsis-horizontal" size={22} color="#5B8DEF" />
+            <Ionicons name="ellipsis-horizontal" size={22} color={colors.accent} />
           </TouchableOpacity>
         )}
       </View>
@@ -1749,24 +1749,33 @@ export default function RecordingDetailScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor="#5B8DEF" />
+          <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor={colors.accent} />
         }
       >
-        {/* Title */}
-        <View style={styles.titleBlock}>
-          <Text style={styles.title}>{recording.title}</Text>
+        {/* Title — gradient backdrop */}
+        <LinearGradient
+          colors={[colors.gradientStart + '1F', 'transparent']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 1 }}
+          style={styles.titleBlock}
+        >
+          <Text style={[styles.title, { color: colors.textPrimary }]}>{recording.title}</Text>
           <View style={styles.metaRow}>
-            <Ionicons name="calendar-outline" size={13} color="#6b7280" />
-            <Text style={styles.metaText}>{formatDate(recording.createdAt)}</Text>
+            <Ionicons name="calendar-outline" size={13} color={colors.textSecondary} />
+            <Text style={[styles.metaText, { color: colors.textSecondary }]}>
+              {formatDate(recording.createdAt)}
+            </Text>
             {recording.duration != null && (
               <>
-                <Text style={styles.metaDot}>·</Text>
-                <Ionicons name="time-outline" size={13} color="#6b7280" />
-                <Text style={styles.metaText}>{formatDuration(recording.duration)}</Text>
+                <Text style={[styles.metaDot, { color: colors.textMuted }]}>·</Text>
+                <Ionicons name="time-outline" size={13} color={colors.textSecondary} />
+                <Text style={[styles.metaText, { color: colors.textSecondary }]}>
+                  {formatDuration(recording.duration)}
+                </Text>
               </>
             )}
           </View>
-        </View>
+        </LinearGradient>
 
         {/* Processing banner */}
         {isProcessing(recording.status) && (
@@ -1838,14 +1847,19 @@ export default function RecordingDetailScreen() {
         {/* Tabs */}
         {recording.status === 'READY' && (
           <>
-            <View style={styles.tabs}>
+            <View style={[styles.tabs, { borderBottomColor: colors.border }]}>
               {(['notes', 'transcript', 'actions', 'ai'] as Tab[]).map((tab) => (
                 <TouchableOpacity
                   key={tab}
-                  style={[styles.tab, activeTab === tab && styles.tabActive]}
+                  style={[
+                    styles.tab,
+                    activeTab === tab && { borderBottomWidth: 2, borderBottomColor: colors.accent },
+                  ]}
                   onPress={() => setActiveTab(tab)}
                 >
-                  <Text style={[styles.tabText, { color: activeTab === tab ? '#5B8DEF' : '#6b7280' }]}>
+                  <Text
+                    style={[styles.tabText, { color: activeTab === tab ? colors.accent : colors.textSecondary }]}
+                  >
                     {tab === 'ai' ? 'Ask AI' : tab.charAt(0).toUpperCase() + tab.slice(1)}
                     {tab === 'actions' && recording.note?.actionItems?.length
                       ? ` (${recording.note.actionItems.length})`

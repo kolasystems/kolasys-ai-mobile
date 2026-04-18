@@ -19,7 +19,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@clerk/clerk-expo';
 import Constants from 'expo-constants';
 import * as FileSystem from 'expo-file-system/legacy';
+import { LinearGradient } from 'expo-linear-gradient';
 import { trpcPost } from '../lib/api';
+import { useTheme } from '../lib/theme';
 
 // True on a physical device, false on simulator/emulator
 const IS_REAL_DEVICE = Constants.isDevice;
@@ -41,6 +43,7 @@ function formatTimer(seconds: number) {
 export default function RecordScreen() {
   const insets = useSafeAreaInsets();
   const { getToken } = useAuth();
+  const { colors, isDark } = useTheme();
 
   const [state, setState] = useState<RecordState>('idle');
   const [elapsed, setElapsed] = useState(0);
@@ -55,6 +58,10 @@ export default function RecordScreen() {
   // Animated bar heights
   const barAnims = useRef(Array.from({ length: NUM_BARS }, () => new Animated.Value(4))).current;
 
+  // Pulsing halo around the record button while recording
+  const pulseScale = useRef(new Animated.Value(1)).current;
+  const pulseOpacity = useRef(new Animated.Value(0)).current;
+
   // ── Permission ───────────────────────────────────────────────────────────────
 
   useEffect(() => {
@@ -68,6 +75,36 @@ export default function RecordScreen() {
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, []);
+
+  // ── Pulsing halo while recording ─────────────────────────────────────────────
+
+  useEffect(() => {
+    let loop: Animated.CompositeAnimation | null = null;
+    if (state === 'recording') {
+      pulseScale.setValue(1);
+      pulseOpacity.setValue(0.35);
+      loop = Animated.loop(
+        Animated.parallel([
+          Animated.timing(pulseScale, {
+            toValue: 1.5,
+            duration: 1400,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseOpacity, {
+            toValue: 0,
+            duration: 1400,
+            useNativeDriver: true,
+          }),
+        ]),
+      );
+      loop.start();
+    } else {
+      pulseOpacity.setValue(0);
+    }
+    return () => {
+      if (loop) loop.stop();
+    };
+  }, [state, pulseScale, pulseOpacity]);
 
   // ── Waveform animation ───────────────────────────────────────────────────────
 
@@ -300,26 +337,32 @@ export default function RecordScreen() {
 
   if (permissionDenied) {
     return (
-      <View style={styles.centered}>
-        <Ionicons name="mic-off-outline" size={48} color="#EF4444" />
-        <Text style={styles.permTitle}>Microphone Access Required</Text>
+      <LinearGradient
+        colors={[colors.bgGradientStart, colors.bgGradientEnd]}
+        style={styles.centered}
+      >
+        <Ionicons name="mic-off-outline" size={48} color={colors.danger} />
+        <Text style={[styles.permTitle, { color: colors.textPrimary }]}>Microphone Access Required</Text>
         {IS_REAL_DEVICE ? (
           <>
-            <Text style={styles.permSub}>
+            <Text style={[styles.permSub, { color: colors.textSecondary }]}>
               Please allow microphone access in:{'\n'}
               Settings {'>'} Privacy {'>'} Microphone {'>'} Kolasys AI
             </Text>
-            <TouchableOpacity style={styles.permBtn} onPress={() => void Linking.openSettings()}>
+            <TouchableOpacity
+              style={[styles.permBtn, { backgroundColor: colors.accent }]}
+              onPress={() => void Linking.openSettings()}
+            >
               <Ionicons name="settings-outline" size={16} color="#ffffff" />
               <Text style={styles.permBtnText}>Open Settings</Text>
             </TouchableOpacity>
           </>
         ) : (
-          <Text style={styles.permSub}>
+          <Text style={[styles.permSub, { color: colors.textSecondary }]}>
             Recording requires a real device.{'\n'}The simulator does not have a microphone.
           </Text>
         )}
-      </View>
+      </LinearGradient>
     );
   }
 
@@ -328,110 +371,171 @@ export default function RecordScreen() {
   const isStopped = state === 'stopped';
   const isUploading = state === 'uploading';
 
+  const barIdleColor = isDark ? '#2E2E3A' : '#D1D5DB';
+
   return (
-    <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView
-        contentContainerStyle={[styles.container, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24 }]}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Timer */}
-        <Text style={[styles.timer, isRecording && styles.timerActive]}>
-          {formatTimer(elapsed)}
-        </Text>
+    <LinearGradient
+      colors={[colors.bgGradientStart, colors.bgGradientEnd]}
+      style={{ flex: 1 }}
+    >
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView
+          contentContainerStyle={[
+            styles.container,
+            { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24 },
+          ]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Timer */}
+          <Text
+            style={[
+              styles.timer,
+              { color: isRecording ? colors.textPrimary : colors.textMuted },
+            ]}
+          >
+            {formatTimer(elapsed)}
+          </Text>
 
-        {/* Waveform */}
-        <View style={styles.waveform}>
-          {barAnims.map((anim, i) => (
-            <Animated.View
-              key={i}
-              style={[
-                styles.bar,
-                { height: anim, backgroundColor: isRecording ? '#EF4444' : '#d1d5db' },
-              ]}
-            />
-          ))}
-        </View>
-
-        {/* Main mic button */}
-        {!isActive && !isStopped && (
-          <TouchableOpacity style={styles.micButton} onPress={handleStart} activeOpacity={0.85}>
-            <Ionicons name="mic" size={44} color="#ffffff" />
-          </TouchableOpacity>
-        )}
-
-        {/* Recording controls */}
-        {isActive && (
-          <View style={styles.controls}>
-            <TouchableOpacity style={styles.controlBtn} onPress={handleStop} activeOpacity={0.8}>
-              <Ionicons name="stop" size={28} color="#EF4444" />
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.controlBtn, styles.controlBtnLarge]} onPress={isRecording ? handlePause : handleResume} activeOpacity={0.8}>
-              <Ionicons name={isRecording ? 'pause' : 'play'} size={36} color="#ffffff" />
-            </TouchableOpacity>
-            <View style={styles.controlBtn} />
+          {/* Waveform */}
+          <View style={styles.waveform}>
+            {barAnims.map((anim, i) => (
+              <Animated.View
+                key={i}
+                style={[
+                  styles.bar,
+                  {
+                    height: anim,
+                    backgroundColor: isRecording ? colors.accent : barIdleColor,
+                    shadowColor: colors.accent,
+                    shadowOpacity: isRecording ? 0.9 : 0,
+                    shadowRadius: isRecording ? 6 : 0,
+                    shadowOffset: { width: 0, height: 0 },
+                  },
+                ]}
+              />
+            ))}
           </View>
-        )}
 
-        {/* Post-recording: title + upload */}
-        {isStopped && (
-          <View style={styles.uploadPanel}>
-            <Text style={styles.uploadDuration}>
-              Recording complete · {formatTimer(elapsed)}
-            </Text>
-
-            <TextInput
-              style={styles.titleInput}
-              placeholder="Recording title…"
-              placeholderTextColor="#9ca3af"
-              value={title}
-              onChangeText={setTitle}
-              autoCapitalize="words"
-              returnKeyType="done"
-            />
-
+          {/* Main mic button */}
+          {!isActive && !isStopped && (
             <TouchableOpacity
-              style={[styles.uploadBtn, { opacity: title.trim() ? 1 : 0.5 }]}
-              onPress={handleUpload}
-              disabled={!title.trim() || isUploading}
-              activeOpacity={0.8}
+              style={[
+                styles.micButton,
+                { backgroundColor: colors.accent, shadowColor: colors.accent },
+              ]}
+              onPress={handleStart}
+              activeOpacity={0.85}
             >
-              {isUploading ? (
-                <ActivityIndicator size="small" color="#ffffff" />
-              ) : (
-                <>
-                  <Ionicons name="cloud-upload-outline" size={18} color="#ffffff" />
-                  <Text style={styles.uploadBtnText}>Upload & Process</Text>
-                </>
-              )}
+              <Ionicons name="mic" size={44} color="#ffffff" />
             </TouchableOpacity>
+          )}
 
-            <TouchableOpacity style={styles.discardBtn} onPress={handleDiscard}>
-              <Text style={styles.discardText}>Discard</Text>
-            </TouchableOpacity>
-          </View>
-        )}
+          {/* Recording controls */}
+          {isActive && (
+            <View style={styles.controls}>
+              <TouchableOpacity
+                style={[styles.controlBtn, { borderColor: colors.border }]}
+                onPress={handleStop}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="stop" size={28} color={colors.danger} />
+              </TouchableOpacity>
+              <View>
+                {/* Pulsing halo */}
+                <Animated.View
+                  pointerEvents="none"
+                  style={[
+                    styles.pulseRing,
+                    {
+                      backgroundColor: colors.accent,
+                      opacity: pulseOpacity,
+                      transform: [{ scale: pulseScale }],
+                    },
+                  ]}
+                />
+                <TouchableOpacity
+                  style={[styles.controlBtn, styles.controlBtnLarge, { backgroundColor: colors.accent, borderColor: colors.accent, shadowColor: colors.accent }]}
+                  onPress={isRecording ? handlePause : handleResume}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name={isRecording ? 'pause' : 'play'} size={36} color="#ffffff" />
+                </TouchableOpacity>
+              </View>
+              <View style={styles.controlBtn} />
+            </View>
+          )}
 
-        {/* Status label */}
-        {!isActive && !isStopped && (
-          <Text style={styles.hint}>Tap to start recording</Text>
-        )}
-        {isRecording && (
-          <View style={styles.recordingIndicator}>
-            <View style={styles.recordingDot} />
-            <Text style={styles.recordingText}>Recording…</Text>
-          </View>
-        )}
-        {state === 'paused' && (
-          <Text style={styles.hint}>Paused</Text>
-        )}
+          {/* Post-recording: title + upload */}
+          {isStopped && (
+            <View style={styles.uploadPanel}>
+              <Text style={[styles.uploadDuration, { color: colors.textSecondary }]}>
+                Recording complete · {formatTimer(elapsed)}
+              </Text>
 
-        {/* Consent */}
-        <Text style={styles.consent}>
-          By recording, you confirm all participants have consented to being recorded.
-        </Text>
-      </ScrollView>
-    </KeyboardAvoidingView>
+              <TextInput
+                style={[
+                  styles.titleInput,
+                  {
+                    borderColor: colors.border,
+                    backgroundColor: colors.surfaceMuted,
+                    color: colors.textPrimary,
+                  },
+                ]}
+                placeholder="Recording title…"
+                placeholderTextColor={colors.textMuted}
+                value={title}
+                onChangeText={setTitle}
+                autoCapitalize="words"
+                returnKeyType="done"
+              />
+
+              <TouchableOpacity
+                style={[
+                  styles.uploadBtn,
+                  { backgroundColor: colors.accent, opacity: title.trim() ? 1 : 0.5 },
+                ]}
+                onPress={handleUpload}
+                disabled={!title.trim() || isUploading}
+                activeOpacity={0.8}
+              >
+                {isUploading ? (
+                  <ActivityIndicator size="small" color="#ffffff" />
+                ) : (
+                  <>
+                    <Ionicons name="cloud-upload-outline" size={18} color="#ffffff" />
+                    <Text style={styles.uploadBtnText}>Upload & Process</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.discardBtn} onPress={handleDiscard}>
+                <Text style={[styles.discardText, { color: colors.textSecondary }]}>Discard</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Status label */}
+          {!isActive && !isStopped && (
+            <Text style={[styles.hint, { color: colors.textMuted }]}>Tap to start recording</Text>
+          )}
+          {isRecording && (
+            <View style={styles.recordingIndicator}>
+              <View style={[styles.recordingDot, { backgroundColor: colors.danger }]} />
+              <Text style={[styles.recordingText, { color: colors.danger }]}>Recording…</Text>
+            </View>
+          )}
+          {state === 'paused' && (
+            <Text style={[styles.hint, { color: colors.textMuted }]}>Paused</Text>
+          )}
+
+          {/* Consent */}
+          <Text style={[styles.consent, { color: colors.textMuted }]}>
+            By recording, you confirm all participants have consented to being recorded.
+          </Text>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </LinearGradient>
   );
 }
 
@@ -508,8 +612,18 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: '#EF4444',
-    borderColor: '#EF4444',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 14,
+    elevation: 6,
+  },
+  pulseRing: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 36,
   },
   hint: { fontSize: 14, color: '#9ca3af' },
   recordingIndicator: { flexDirection: 'row', alignItems: 'center', gap: 8 },

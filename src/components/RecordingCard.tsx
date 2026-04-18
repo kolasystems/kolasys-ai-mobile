@@ -1,7 +1,8 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBadge } from './StatusBadge';
+import { useTheme } from '../lib/theme';
 import type { Recording } from '../lib/trpc';
 
 function formatDuration(seconds: number | null): string {
@@ -24,6 +25,9 @@ interface Props {
 }
 
 export function RecordingCard({ recording, onPress }: Props) {
+  const { colors } = useTheme();
+  const scale = useRef(new Animated.Value(1)).current;
+
   const sourceIcon =
     recording.source === 'MEETING_BOT'
       ? 'videocam-outline'
@@ -31,33 +35,50 @@ export function RecordingCard({ recording, onPress }: Props) {
       ? 'globe-outline'
       : 'cloud-upload-outline';
 
+  const handlePressIn = () =>
+    Animated.spring(scale, { toValue: 0.98, useNativeDriver: true, speed: 40, bounciness: 4 }).start();
+  const handlePressOut = () =>
+    Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 40, bounciness: 4 }).start();
+
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.7}>
-      <View style={styles.top}>
-        <View style={styles.titleRow}>
-          <Ionicons name={sourceIcon} size={14} color="#6b7280" />
-          <Text style={styles.title} numberOfLines={1}>
-            {recording.title}
-          </Text>
+    <Animated.View style={{ transform: [{ scale }], marginBottom: 10 }}>
+      <TouchableOpacity
+        style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}
+        onPress={onPress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        activeOpacity={0.9}
+      >
+        <View style={styles.top}>
+          <View style={styles.titleRow}>
+            <Ionicons name={sourceIcon} size={14} color={colors.textMuted} />
+            <Text style={[styles.title, { color: colors.textPrimary }]} numberOfLines={1}>
+              {recording.title}
+            </Text>
+          </View>
+          <StatusBadge status={recording.status} size="sm" createdAt={recording.createdAt} />
         </View>
-        <StatusBadge status={recording.status} size="sm" createdAt={recording.createdAt} />
-      </View>
-      <View style={styles.meta}>
-        <Text style={styles.metaText}>{formatDate(recording.createdAt)}</Text>
-        {recording.duration != null && (
-          <>
-            <Text style={styles.dot}>·</Text>
-            <Ionicons name="time-outline" size={12} color="#6b7280" />
-            <Text style={styles.metaText}>{formatDuration(recording.duration)}</Text>
-          </>
+        <View style={styles.meta}>
+          <Text style={[styles.metaText, { color: colors.textMuted }]}>
+            {formatDate(recording.createdAt)}
+          </Text>
+          {recording.duration != null && (
+            <>
+              <Text style={[styles.dot, { color: colors.borderStrong }]}>·</Text>
+              <Ionicons name="time-outline" size={12} color={colors.textMuted} />
+              <Text style={[styles.metaText, { color: colors.textMuted }]}>
+                {formatDuration(recording.duration)}
+              </Text>
+            </>
+          )}
+        </View>
+        {recording.note?.summary && (
+          <Text style={[styles.summary, { color: colors.textSecondary }]} numberOfLines={2}>
+            {recording.note.summary}
+          </Text>
         )}
-      </View>
-      {recording.note?.summary && (
-        <Text style={styles.summary} numberOfLines={2}>
-          {recording.note.summary}
-        </Text>
-      )}
-    </TouchableOpacity>
+      </TouchableOpacity>
+    </Animated.View>
   );
 }
 
@@ -65,10 +86,7 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
-    backgroundColor: '#ffffff',
     padding: 14,
-    marginBottom: 10,
     gap: 6,
   },
   top: {
@@ -87,7 +105,6 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     fontWeight: '600',
-    color: '#111827',
   },
   meta: {
     flexDirection: 'row',
@@ -96,16 +113,13 @@ const styles = StyleSheet.create({
   },
   metaText: {
     fontSize: 12,
-    color: '#6b7280',
   },
   dot: {
     fontSize: 12,
-    color: '#9ca3af',
   },
   summary: {
     fontSize: 13,
     lineHeight: 18,
     marginTop: 2,
-    color: '#6b7280',
   },
 });
