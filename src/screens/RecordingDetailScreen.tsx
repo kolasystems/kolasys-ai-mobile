@@ -231,9 +231,13 @@ type AudioState =
 function AudioPlayerBlock({
   recordingId,
   duration,
+  onPositionChange,
+  onSoundReady,
 }: {
   recordingId: string;
   duration: number | null;
+  onPositionChange?: (ms: number) => void;
+  onSoundReady?: (sound: Audio.Sound | null) => void;
 }) {
   const { colors: playerColors } = useTheme();
   const { getToken } = useAuth();
@@ -258,6 +262,10 @@ function AudioPlayerBlock({
   // expired URL — keep a ref so we don't have to thread state into callbacks.
   const positionMsRef = useRef(0);
   useEffect(() => { positionMsRef.current = positionMs; }, [positionMs]);
+
+  // Bubble position ticks up to the parent so the transcript tab can
+  // highlight the current word.
+  useEffect(() => { onPositionChange?.(positionMs); }, [positionMs, onPositionChange]);
   const isPlayingRef = useRef(false);
   useEffect(() => { isPlayingRef.current = isPlaying; }, [isPlaying]);
 
@@ -274,6 +282,7 @@ function AudioPlayerBlock({
   async function unloadSound() {
     const s = soundRef.current;
     soundRef.current = null;
+    onSoundReady?.(null);
     if (!s) return;
     try {
       await s.unloadAsync();
@@ -297,6 +306,7 @@ function AudioPlayerBlock({
       return;
     }
     soundRef.current = sound;
+    onSoundReady?.(sound);
     sound.setOnPlaybackStatusUpdate(onStatus);
   }
 
@@ -1690,6 +1700,24 @@ export default function RecordingDetailScreen() {
   const [activeTab, setActiveTab] = useState<Tab>('notes');
   const [transcriptPage, setTranscriptPage] = useState(0);
   const [showExport, setShowExport] = useState(false);
+
+  // Audio playhead + sound reference lifted from AudioPlayerBlock so the
+  // transcript rows can highlight the current word and tap-to-seek.
+  const [playheadMs, setPlayheadMs] = useState(0);
+  const sharedSoundRef = useRef<Audio.Sound | null>(null);
+  const handleSoundReady = useCallback((s: Audio.Sound | null) => {
+    sharedSoundRef.current = s;
+  }, []);
+  const handleWordPress = useCallback(async (startSec: number) => {
+    try {
+      const status = await sharedSoundRef.current?.getStatusAsync();
+      if (status?.isLoaded) {
+        await sharedSoundRef.current?.setPositionAsync(Math.round(startSec * 1000));
+      }
+    } catch (err) {
+      console.warn('[word-seek]', err);
+    }
+  }, []);
   const [showNameSpeakers, setShowNameSpeakers] = useState(false);
   const [showRetranscribe, setShowRetranscribe] = useState(false);
   const [showFindReplace, setShowFindReplace] = useState(false);
@@ -2035,6 +2063,8 @@ export default function RecordingDetailScreen() {
                 <AudioPlayerBlock
                   recordingId={recording.id}
                   duration={recording.duration}
+                  onPositionChange={setPlayheadMs}
+                  onSoundReady={handleSoundReady}
                 />
 
                 <View style={[styles.tabContent, { paddingTop: 16 }]}>
@@ -2069,6 +2099,9 @@ export default function RecordingDetailScreen() {
                           key={seg.id}
                           segment={seg}
                           speakerIndex={seg.speaker ? speakerIndexMap[seg.speaker] : 0}
+                          wordsJson={seg.wordsJson}
+                          playheadSec={playheadMs / 1000}
+                          onWordPress={handleWordPress}
                         />
                       ))}
                       {totalPages > 1 && (

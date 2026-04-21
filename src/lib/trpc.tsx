@@ -49,6 +49,10 @@ export interface TranscriptSegment {
   startTime: number;
   endTime: number;
   confidence: number | null;
+  /** JSON-encoded Array<{word: string; start: number; end: number}> from
+   *  word-level diarization. Null when the provider didn't return word
+   *  timestamps. */
+  wordsJson?: string | null;
 }
 
 export interface SpeakerLabel {
