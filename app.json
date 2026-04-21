@@ -10,7 +10,7 @@
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#1A1A2E"
+      "backgroundColor": "#FFFFFF"
     },
     "ios": {
       "supportsTablet": false,
@@ -19,14 +19,18 @@
         "NSMicrophoneUsageDescription": "Kolasys AI needs microphone access to record meetings.",
         "NSCalendarsUsageDescription": "Kolasys AI uses your calendar to show upcoming meetings.",
         "NSCalendarsFullAccessUsageDescription": "Kolasys AI uses your calendar to show upcoming meetings.",
-        "UIBackgroundModes": ["audio", "fetch", "remote-notification"]
+        "UIBackgroundModes": [
+          "audio",
+          "fetch",
+          "remote-notification"
+        ]
       }
     },
     "android": {
       "package": "com.kolasystems.kolasysai",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#1A1A2E"
+        "backgroundColor": "#FFFFFF"
       },
       "edgeToEdgeEnabled": true,
       "permissions": [
@@ -54,7 +58,7 @@
         "expo-notifications",
         {
           "icon": "./assets/icon.png",
-          "color": "#5B8DEF",
+          "color": "#CA2625",
           "sounds": []
         }
       ],

@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   Alert,
   ScrollView,
+  Image,
 } from 'react-native';
 import { useSignIn, useSSO } from '@clerk/clerk-expo';
 import * as WebBrowser from 'expo-web-browser';
@@ -276,9 +277,11 @@ export default function SignInScreen() {
       >
         {/* Logo + Brand */}
         <View style={styles.brand}>
-          <View style={styles.logoContainer}>
-            <Ionicons name="mic" size={40} color={Colors.primary} />
-          </View>
+          <Image
+            source={require('../../assets/icon.png')}
+            style={styles.logoImage}
+            resizeMode="contain"
+          />
           <Text style={styles.appName}>Kolasys AI</Text>
           <Text style={styles.tagline}>AI-powered meeting notes</Text>
         </View>
@@ -382,13 +385,10 @@ const styles = StyleSheet.create({
   },
   backText: { fontSize: 15, fontWeight: '600', color: Colors.primary },
   brand: { alignItems: 'center', marginBottom: 12, gap: 10 },
-  logoContainer: {
-    width: 84,
-    height: 84,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.primary + '20',
+  logoImage: {
+    width: 90,
+    height: 90,
+    borderRadius: 20,
   },
   appName: { fontSize: 28, fontWeight: '700', letterSpacing: -0.5, color: '#111827' },
   tagline: { fontSize: 15, textAlign: 'center', paddingHorizontal: 16, color: '#6b7280' },
