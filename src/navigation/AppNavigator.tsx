@@ -14,6 +14,8 @@ import RecordScreen from '../screens/RecordScreen';
 import RecordingsScreen from '../screens/RecordingsScreen';
 import RecordingDetailScreen from '../screens/RecordingDetailScreen';
 import SettingsScreen from '../screens/SettingsScreen';
+import ContactsScreen from '../screens/ContactsScreen';
+import AnalyticsScreen from '../screens/AnalyticsScreen';
 import { useTheme } from '../lib/theme';
 
 export type TabParamList = {
@@ -28,7 +30,14 @@ export type RecordingsStackParamList = {
   RecordingDetail: { id: string };
 };
 
+export type SettingsStackParamList = {
+  SettingsMain: undefined;
+  Contacts: undefined;
+  Analytics: undefined;
+};
+
 const Stack = createNativeStackNavigator<RecordingsStackParamList>();
+const SettingsStackInstance = createNativeStackNavigator<SettingsStackParamList>();
 
 function RecordingsStack() {
   const { colors } = useTheme();
@@ -45,6 +54,37 @@ function RecordingsStack() {
       <Stack.Screen name="RecordingsList" component={RecordingsScreen} options={{ title: 'Recordings' }} />
       <Stack.Screen name="RecordingDetail" component={RecordingDetailScreen} options={{ title: '' }} />
     </Stack.Navigator>
+  );
+}
+
+function SettingsStack() {
+  const { colors } = useTheme();
+  return (
+    <SettingsStackInstance.Navigator
+      screenOptions={{
+        headerBackButtonDisplayMode: 'minimal',
+        headerStyle: { backgroundColor: colors.surface },
+        headerTitleStyle: { color: colors.textPrimary },
+        headerTintColor: colors.accent,
+        contentStyle: { backgroundColor: colors.background },
+      }}
+    >
+      <SettingsStackInstance.Screen
+        name="SettingsMain"
+        component={SettingsScreen}
+        options={{ title: 'Settings' }}
+      />
+      <SettingsStackInstance.Screen
+        name="Contacts"
+        component={ContactsScreen}
+        options={{ title: 'Contacts' }}
+      />
+      <SettingsStackInstance.Screen
+        name="Analytics"
+        component={AnalyticsScreen}
+        options={{ title: 'Analytics' }}
+      />
+    </SettingsStackInstance.Navigator>
   );
 }
 
@@ -104,7 +144,7 @@ export default function AppNavigator() {
         <Tab.Screen name="Home" component={HomeScreen} options={{ headerTitle: 'Kolasys AI' }} />
         <Tab.Screen name="Record" component={RecordScreen} options={{ headerTitle: 'New Recording' }} />
         <Tab.Screen name="Recordings" component={RecordingsStack} options={{ headerShown: false }} />
-        <Tab.Screen name="Settings" component={SettingsScreen} />
+        <Tab.Screen name="Settings" component={SettingsStack} options={{ headerShown: false }} />
       </Tab.Navigator>
     </NavigationContainer>
   );
