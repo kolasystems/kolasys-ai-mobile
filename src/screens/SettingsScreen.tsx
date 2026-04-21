@@ -13,7 +13,10 @@ import { useUser, useAuth } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Constants from 'expo-constants';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTheme, type ThemeColors } from '../lib/theme';
+import type { SettingsStackParamList } from '../navigation/AppNavigator';
 
 function Row({
   icon,
@@ -67,7 +70,7 @@ function Row({
   );
 }
 
-export default function SettingsScreen() {
+export default function SettingsScreen({ navigation }: { navigation: NativeStackNavigationProp<SettingsStackParamList> }) {
   const insets = useSafeAreaInsets();
   const { user } = useUser();
   const { signOut } = useAuth();
@@ -115,6 +118,25 @@ export default function SettingsScreen() {
           <Text style={[styles.profileName, { color: colors.textPrimary }]}>{fullName}</Text>
           <Text style={[styles.profileEmail, { color: colors.textSecondary }]}>{email}</Text>
         </View>
+      </View>
+
+      {/* Data */}
+      <Text style={[styles.sectionHeader, { color: colors.textMuted }]}>DATA</Text>
+      <View style={[styles.section, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+        <Row
+          icon="people-outline"
+          label="Contacts"
+          value="Meeting participants"
+          onPress={() => navigation.navigate('Contacts')}
+          colors={colors}
+        />
+        <Row
+          icon="bar-chart-outline"
+          label="Analytics"
+          value="Meeting intelligence"
+          onPress={() => navigation.navigate('Analytics')}
+          colors={colors}
+        />
       </View>
 
       {/* Appearance */}
