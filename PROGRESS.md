@@ -138,17 +138,56 @@ Repo: [github.com/kolasystems/kolasys-ai-mobile](https://github.com/kolasystems/
 
 ---
 
+## ✅ Complete — Contacts Screen (2026-04-21)
+
+- [x] Push navigation from Settings → Contacts via SettingsStack
+- [x] Search bar with live filter
+- [x] Contact cards: coloured initials avatar (deterministic from name), name, meeting count pill, talk time pill, last seen pill
+- [x] Empty state with icon and helpful copy
+- [x] Pulls from trpc.contacts.list
+
+---
+
+## ✅ Complete — Analytics Screen (2026-04-21)
+
+- [x] Push navigation from Settings → Analytics via SettingsStack
+- [x] 4 stat cards in 2×2 grid: Total Meetings, Avg Duration, Action Items, Total Time
+- [x] 12-week meeting frequency bar chart (custom View-based, no library)
+- [x] Speaker talk time horizontal progress bars (top 8)
+- [x] Recent recordings list (last 10)
+- [x] Pulls from trpc.analytics.getStats
+
+---
+
+## ✅ Complete — SettingsStack Navigation (2026-04-21)
+
+- [x] AppNavigator.tsx — Settings tab is now a SettingsStack (not a direct tab screen)
+- [x] SettingsStackParamList exported: { SettingsMain, Contacts, Analytics }
+- [x] SettingsScreen accepts navigation as typed prop — NOT useNavigation() hook (hook returns tab context, not stack)
+- [x] DATA section in Settings with Contacts and Analytics rows
+
+---
+
+## ✅ Complete — Word-Level Audio Sync (2026-04-21)
+
+- [x] TranscriptSegment type updated with wordsJson?: string | null
+- [x] TranscriptSegmentRow renders word-by-word tappable Text when wordsJson present
+- [x] Active word highlighted in colors.accent + colors.accentSoft background
+- [x] Tap word → soundRef.current.setPositionAsync(Math.round(startSec * 1000))
+- [x] Falls back to plain text for recordings without wordsJson (old recordings)
+
+---
+
 ## 🔴 Not Yet Built — Next Priority
 
-### Critical (build next)
-- [ ] **Ask Kolasys** — upgrade AskAI tab to floating chat panel, works during playback
-- [ ] **Bot capture** — deploy meeting bot from mobile (calendar meeting → tap to record with bot)
-
-### High (build this week)
-- [ ] **Contacts screen** — mirror web /dashboard/contacts (tRPC API already exists, just needs UI)
-- [ ] **Analytics screen** — mirror web /dashboard/analytics (same)
+### High (build next)
+- [ ] **Apple Watch Phase 1** — SwiftUI WatchOS target, WatchConnectivity, tap crown to start/stop recording on iPhone, live timer, haptic. NO competitor has this.
 - [ ] **Soundbites** — clip highlight from recording, share via public link
-- [ ] **Word-level audio sync** — click transcript word → audio jumps to timestamp (Whisper already returns word timestamps)
+- [ ] **Bot capture from mobile** — deploy meeting bot from calendar screen
+
+### Medium
+- [ ] **CRM integration** — HubSpot + Salesforce
+- [ ] **API keys page** — expose developer access
 
 ### Apple Watch — Planned, No Competitor Has This
 - [ ] **Phase 1** — SwiftUI WatchOS target, WatchConnectivity, tap crown to start/stop recording on iPhone, live timer, haptic

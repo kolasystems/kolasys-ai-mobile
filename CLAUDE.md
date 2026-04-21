@@ -235,9 +235,10 @@ Four tabs: **Notes | Transcript | Actions | Ask AI**
 | Dark mode (full app) | ✅ Complete as of 2026-04-20 |
 | Markdown rendering | ✅ react-native-markdown-display |
 | Push notifications (notes ready) | ✅ Partial — expo-notifications wired, not TestFlight |
-| Contacts screen | ❌ Not started |
-| Analytics screen | ❌ Not started |
-| Word-level audio sync | ❌ Not started |
+| ContactsScreen | ✅ Built — search, initials avatar, meta pills |
+| AnalyticsScreen | ✅ Built — stat cards, bar chart, speaker talk time |
+| SettingsStack navigation | ✅ Contacts + Analytics accessible from Settings > DATA section |
+| Word-level audio sync | ✅ Tappable words on Transcript tab (new recordings only) |
 | TestFlight | ❌ Needs Apple Developer account |
 | Android | ❌ Untested |
 
