@@ -14,7 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
-import { Colors } from '../lib/theme';
+import { useTheme } from '../lib/theme';
 import type { TabParamList } from '../navigation/AppNavigator';
 
 type Nav = BottomTabNavigationProp<TabParamList>;
@@ -69,6 +69,7 @@ function groupByDate(events: CalendarEvent[]): Record<string, CalendarEvent[]> {
 export default function CalendarScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<Nav>();
+  const { colors } = useTheme();
 
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
@@ -162,24 +163,24 @@ export default function CalendarScreen() {
 
   if (hasPermission === null) {
     return (
-      <View style={styles.centered}>
-        <ActivityIndicator color={Colors.primary} />
+      <View style={[styles.centered, { backgroundColor: colors.background }]}>
+        <ActivityIndicator color={colors.accent} />
       </View>
     );
   }
 
   if (!hasPermission) {
     return (
-      <View style={[styles.centered, { paddingHorizontal: 32 }]}>
-        <View style={styles.permissionIcon}>
-          <Ionicons name="calendar-outline" size={48} color={Colors.primary} />
+      <View style={[styles.centered, { paddingHorizontal: 32, backgroundColor: colors.background }]}>
+        <View style={[styles.permissionIcon, { backgroundColor: colors.accentSoft }]}>
+          <Ionicons name="calendar-outline" size={48} color={colors.accent} />
         </View>
-        <Text style={styles.permissionTitle}>Connect Your Calendar</Text>
-        <Text style={styles.permissionSubtitle}>
+        <Text style={[styles.permissionTitle, { color: colors.textPrimary }]}>Connect Your Calendar</Text>
+        <Text style={[styles.permissionSubtitle, { color: colors.textSecondary }]}>
           See upcoming meetings and start recording or deploy a bot directly from your calendar.
         </Text>
-        <TouchableOpacity style={styles.connectButton} onPress={requestPermission}>
-          <Ionicons name="calendar" size={18} color={Colors.white} />
+        <TouchableOpacity style={[styles.connectButton, { backgroundColor: colors.accent }]} onPress={requestPermission}>
+          <Ionicons name="calendar" size={18} color="#ffffff" />
           <Text style={styles.connectButtonText}>Connect Calendar</Text>
         </TouchableOpacity>
       </View>
@@ -187,14 +188,14 @@ export default function CalendarScreen() {
   }
 
   return (
-    <View style={styles.screen}>
+    <View style={[styles.screen, { backgroundColor: colors.background }]}>
       {loading ? (
-        <ActivityIndicator color={Colors.primary} style={styles.loader} />
+        <ActivityIndicator color={colors.accent} style={styles.loader} />
       ) : events.length === 0 ? (
-        <View style={[styles.centered, { padding: 32 }]}>
-          <Ionicons name="calendar-outline" size={40} color="#9ca3af" />
-          <Text style={styles.emptyTitle}>No upcoming meetings</Text>
-          <Text style={styles.emptySubtitle}>Your calendar is clear for the next 7 days.</Text>
+        <View style={[styles.centered, { padding: 32, backgroundColor: colors.background }]}>
+          <Ionicons name="calendar-outline" size={40} color={colors.textMuted} />
+          <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>No upcoming meetings</Text>
+          <Text style={[styles.emptySubtitle, { color: colors.textMuted }]}>Your calendar is clear for the next 7 days.</Text>
         </View>
       ) : (
         <ScrollView
@@ -203,46 +204,49 @@ export default function CalendarScreen() {
         >
           {dateGroups.map((dateKey) => (
             <View key={dateKey} style={styles.dateGroup}>
-              <Text style={styles.dateHeader}>
+              <Text style={[styles.dateHeader, { color: colors.textMuted }]}>
                 {formatEventDate(grouped[dateKey][0].startDate)}
               </Text>
               {grouped[dateKey].map((event) => (
-                <View key={event.id} style={styles.eventCard}>
+                <View
+                  key={event.id}
+                  style={[styles.eventCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                >
                   <View style={styles.eventTime}>
-                    <View style={[styles.timeDot, { backgroundColor: event.isOnline ? Colors.primary : Colors.gray400 }]} />
-                    <Text style={styles.timeText}>{formatEventTime(event.startDate)}</Text>
+                    <View style={[styles.timeDot, { backgroundColor: event.isOnline ? colors.accent : colors.textMuted }]} />
+                    <Text style={[styles.timeText, { color: colors.textMuted }]}>{formatEventTime(event.startDate)}</Text>
                   </View>
                   <View style={styles.eventContent}>
-                    <Text style={styles.eventTitle} numberOfLines={2}>{event.title}</Text>
+                    <Text style={[styles.eventTitle, { color: colors.textPrimary }]} numberOfLines={2}>{event.title}</Text>
                     {event.location && !event.isOnline && (
                       <View style={styles.eventMeta}>
-                        <Ionicons name="location-outline" size={12} color="#6b7280" />
-                        <Text style={styles.eventMetaText} numberOfLines={1}>{event.location}</Text>
+                        <Ionicons name="location-outline" size={12} color={colors.textMuted} />
+                        <Text style={[styles.eventMetaText, { color: colors.textMuted }]} numberOfLines={1}>{event.location}</Text>
                       </View>
                     )}
                     {event.isOnline && (
                       <View style={styles.eventMeta}>
-                        <Ionicons name="videocam-outline" size={12} color={Colors.primary} />
-                        <Text style={[styles.eventMetaText, { color: Colors.primary }]}>Online meeting</Text>
+                        <Ionicons name="videocam-outline" size={12} color={colors.accent} />
+                        <Text style={[styles.eventMetaText, { color: colors.accent }]}>Online meeting</Text>
                       </View>
                     )}
                   </View>
                   <View style={styles.eventActions}>
                     {event.isOnline && (
                       <TouchableOpacity
-                        style={[styles.actionBtn, { backgroundColor: Colors.primary + '15' }]}
+                        style={[styles.actionBtn, { backgroundColor: colors.accentSoft }]}
                         onPress={() => handleDeployBot(event)}
                       >
-                        <Ionicons name="hardware-chip-outline" size={14} color={Colors.primary} />
-                        <Text style={[styles.actionBtnText, { color: Colors.primary }]}>Bot</Text>
+                        <Ionicons name="hardware-chip-outline" size={14} color={colors.accent} />
+                        <Text style={[styles.actionBtnText, { color: colors.accent }]}>Bot</Text>
                       </TouchableOpacity>
                     )}
                     <TouchableOpacity
-                      style={styles.actionBtnSecondary}
+                      style={[styles.actionBtnSecondary, { borderColor: colors.border, backgroundColor: colors.surfaceMuted }]}
                       onPress={() => handleRecordDevice(event)}
                     >
-                      <Ionicons name="mic-outline" size={14} color="#111827" />
-                      <Text style={styles.actionBtnSecondaryText}>Record</Text>
+                      <Ionicons name="mic-outline" size={14} color={colors.textPrimary} />
+                      <Text style={[styles.actionBtnSecondaryText, { color: colors.textPrimary }]}>Record</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -256,8 +260,8 @@ export default function CalendarScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#ffffff' },
-  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14, backgroundColor: '#ffffff' },
+  screen: { flex: 1 },
+  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14 },
   loader: { marginTop: 40 },
   content: { padding: 16, gap: 20 },
   permissionIcon: {
@@ -266,23 +270,21 @@ const styles = StyleSheet.create({
     borderRadius: 45,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.primary + '15',
   },
-  permissionTitle: { fontSize: 22, fontWeight: '700', textAlign: 'center', color: '#111827' },
-  permissionSubtitle: { fontSize: 14, textAlign: 'center', lineHeight: 21, color: '#6b7280' },
+  permissionTitle: { fontSize: 22, fontWeight: '700', textAlign: 'center' },
+  permissionSubtitle: { fontSize: 14, textAlign: 'center', lineHeight: 21 },
   connectButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.primary,
     paddingHorizontal: 24,
     paddingVertical: 14,
     borderRadius: 14,
     gap: 8,
     marginTop: 8,
   },
-  connectButtonText: { color: Colors.white, fontSize: 15, fontWeight: '700' },
-  emptyTitle: { fontSize: 18, fontWeight: '600', color: '#111827' },
-  emptySubtitle: { fontSize: 14, textAlign: 'center', color: '#6b7280' },
+  connectButtonText: { color: '#ffffff', fontSize: 15, fontWeight: '700' },
+  emptyTitle: { fontSize: 18, fontWeight: '600' },
+  emptySubtitle: { fontSize: 14, textAlign: 'center' },
   dateGroup: { gap: 8 },
   dateHeader: {
     fontSize: 13,
@@ -290,13 +292,10 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     paddingLeft: 4,
-    color: '#6b7280',
   },
   eventCard: {
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
-    backgroundColor: '#ffffff',
     padding: 14,
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -304,11 +303,11 @@ const styles = StyleSheet.create({
   },
   eventTime: { alignItems: 'center', gap: 4, paddingTop: 2, width: 40 },
   timeDot: { width: 8, height: 8, borderRadius: 4 },
-  timeText: { fontSize: 11, textAlign: 'center', color: '#6b7280' },
+  timeText: { fontSize: 11, textAlign: 'center' },
   eventContent: { flex: 1, gap: 4 },
-  eventTitle: { fontSize: 14, fontWeight: '600', lineHeight: 20, color: '#111827' },
+  eventTitle: { fontSize: 14, fontWeight: '600', lineHeight: 20 },
   eventMeta: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  eventMetaText: { fontSize: 12, color: '#6b7280' },
+  eventMetaText: { fontSize: 12 },
   eventActions: { flexDirection: 'row', gap: 6, alignSelf: 'center' },
   actionBtn: {
     flexDirection: 'row',
@@ -326,9 +325,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
-    backgroundColor: '#f9fafb',
     gap: 4,
   },
-  actionBtnSecondaryText: { fontSize: 12, fontWeight: '600', color: '#111827' },
+  actionBtnSecondaryText: { fontSize: 12, fontWeight: '600' },
 });

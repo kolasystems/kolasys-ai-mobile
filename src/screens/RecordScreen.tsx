@@ -30,6 +30,20 @@ type RecordState = 'idle' | 'recording' | 'paused' | 'stopped' | 'uploading' | '
 
 const NUM_BARS = 7;
 
+// Most common languages shown as chips in the upload panel.
+// Full list lives in the web default-language-selector component.
+const RECORD_LANGUAGES = [
+  { code: 'auto', label: 'Auto' },
+  { code: 'en', label: 'EN' },
+  { code: 'es', label: 'ES' },
+  { code: 'fr', label: 'FR' },
+  { code: 'de', label: 'DE' },
+  { code: 'pt', label: 'PT' },
+  { code: 'ja', label: 'JA' },
+  { code: 'zh', label: 'ZH' },
+  { code: 'ar', label: 'AR' },
+];
+
 function pad(n: number) {
   return String(n).padStart(2, '0');
 }
@@ -48,6 +62,7 @@ export default function RecordScreen() {
   const [state, setState] = useState<RecordState>('idle');
   const [elapsed, setElapsed] = useState(0);
   const [title, setTitle] = useState('');
+  const [language, setLanguage] = useState('en');
   const [recordingUri, setRecordingUri] = useState<string | null>(null);
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [permissionDenied, setPermissionDenied] = useState(false);
@@ -256,6 +271,7 @@ export default function RecordScreen() {
           setRecordingUri(null);
           setElapsed(0);
           setTitle('');
+          setLanguage('en');
           setState('idle');
         },
       },
@@ -310,6 +326,7 @@ export default function RecordScreen() {
           duration: elapsed > 0 ? elapsed : undefined,
           fileSize,
           mimeType: contentType,
+          language: language === 'auto' ? undefined : language,
         },
         token,
       );
@@ -466,7 +483,7 @@ export default function RecordScreen() {
             </View>
           )}
 
-          {/* Post-recording: title + upload */}
+          {/* Post-recording: title + language + upload */}
           {isStopped && (
             <View style={styles.uploadPanel}>
               <Text style={[styles.uploadDuration, { color: colors.textSecondary }]}>
@@ -489,6 +506,36 @@ export default function RecordScreen() {
                 autoCapitalize="words"
                 returnKeyType="done"
               />
+
+              {/* Language picker */}
+              <View style={[styles.langRow, { borderColor: colors.border, backgroundColor: colors.surfaceMuted }]}>
+                <Ionicons name="language-outline" size={16} color={colors.textMuted} />
+                <Text style={[styles.langLabel, { color: colors.textSecondary }]}>Language</Text>
+                <View style={styles.langButtons}>
+                  {RECORD_LANGUAGES.map((lang) => (
+                    <TouchableOpacity
+                      key={lang.code}
+                      onPress={() => setLanguage(lang.code)}
+                      style={[
+                        styles.langChip,
+                        language === lang.code
+                          ? { backgroundColor: colors.accent }
+                          : { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 },
+                      ]}
+                      activeOpacity={0.7}
+                    >
+                      <Text
+                        style={[
+                          styles.langChipText,
+                          { color: language === lang.code ? '#ffffff' : colors.textSecondary },
+                        ]}
+                      >
+                        {lang.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
 
               <TouchableOpacity
                 style={[
@@ -636,6 +683,24 @@ const styles = StyleSheet.create({
   recordingText: { fontSize: 14, color: '#EF4444', fontWeight: '600' },
   uploadPanel: { width: '100%', gap: 14, alignItems: 'stretch' },
   uploadDuration: { fontSize: 14, color: '#6b7280', textAlign: 'center' },
+  langRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    flexWrap: 'wrap',
+  },
+  langLabel: { fontSize: 13, fontWeight: '500' },
+  langButtons: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, flex: 1, justifyContent: 'flex-end' },
+  langChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+  },
+  langChipText: { fontSize: 12, fontWeight: '700' },
   titleInput: {
     height: 52,
     borderRadius: 14,

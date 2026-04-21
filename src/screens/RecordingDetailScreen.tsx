@@ -185,6 +185,7 @@ type WaveformBarProps = {
 };
 
 function WaveformBar({ duration, subtitle }: WaveformBarProps) {
+  const { colors } = useTheme();
   const sub =
     subtitle === undefined ? 'Audio deleted after transcription' : subtitle;
 
@@ -201,9 +202,9 @@ function WaveformBar({ duration, subtitle }: WaveformBarProps) {
       {(duration != null || sub) && (
         <View style={waveStyles.durationRow}>
           {duration != null && (
-            <Text style={waveStyles.durationText}>{formatDuration(duration)}</Text>
+            <Text style={[waveStyles.durationText, { color: colors.textPrimary }]}>{formatDuration(duration)}</Text>
           )}
-          {sub && <Text style={waveStyles.durationSub}>{sub}</Text>}
+          {sub && <Text style={[waveStyles.durationSub, { color: colors.textMuted }]}>{sub}</Text>}
         </View>
       )}
     </View>
@@ -234,6 +235,7 @@ function AudioPlayerBlock({
   recordingId: string;
   duration: number | null;
 }) {
+  const { colors: playerColors } = useTheme();
   const { getToken } = useAuth();
   const getTokenRef = useRef(getToken);
   useEffect(() => {
@@ -434,7 +436,7 @@ function AudioPlayerBlock({
       <View style={playerStyles.container}>
         <WaveformBar duration={duration} subtitle="Loading audio…" />
         <View style={playerStyles.loadingRow}>
-          <ActivityIndicator size="small" color="#5B8DEF" />
+          <ActivityIndicator size="small" color={playerColors.accent} />
         </View>
       </View>
     );
@@ -467,7 +469,7 @@ function AudioPlayerBlock({
       {/* Scrubber — tap anywhere on the bar to seek */}
       <View style={playerStyles.scrubberWrap}>
         <View
-          style={playerStyles.progressTrack}
+          style={[playerStyles.progressTrack, { backgroundColor: playerColors.border }]}
           onLayout={(e) => setBarWidth(e.nativeEvent.layout.width)}
           onStartShouldSetResponder={() => true}
           onMoveShouldSetResponder={() => true}
@@ -485,24 +487,24 @@ function AudioPlayerBlock({
           />
         </View>
         <View style={playerStyles.timeRow}>
-          <Text style={playerStyles.time}>
+          <Text style={[playerStyles.time, { color: playerColors.textMuted }]}>
             {formatTimestamp(positionMs / 1000)}
           </Text>
-          <Text style={playerStyles.time}>
+          <Text style={[playerStyles.time, { color: playerColors.textMuted }]}>
             {formatTimestamp(displayDurMs / 1000)}
           </Text>
         </View>
       </View>
 
       {/* Transport controls */}
-      <View style={playerStyles.controls}>
+      <View style={[playerStyles.controls, { borderTopColor: playerColors.border }]}>
         <TouchableOpacity
           style={playerStyles.seekBtn}
           onPress={() => void skip(-15)}
           activeOpacity={0.7}
         >
-          <Ionicons name="play-skip-back" size={18} color="#111827" />
-          <Text style={playerStyles.seekLabel}>15</Text>
+          <Ionicons name="play-skip-back" size={18} color={playerColors.textPrimary} />
+          <Text style={[playerStyles.seekLabel, { color: playerColors.textPrimary }]}>15</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -522,8 +524,8 @@ function AudioPlayerBlock({
           onPress={() => void skip(15)}
           activeOpacity={0.7}
         >
-          <Text style={playerStyles.seekLabel}>15</Text>
-          <Ionicons name="play-skip-forward" size={18} color="#111827" />
+          <Text style={[playerStyles.seekLabel, { color: playerColors.textPrimary }]}>15</Text>
+          <Ionicons name="play-skip-forward" size={18} color={playerColors.textPrimary} />
         </TouchableOpacity>
       </View>
     </View>
@@ -651,22 +653,23 @@ function TopicOutline({ segments, pageSize, onTopicPress }: {
   pageSize: number;
   onTopicPress: (pageIndex: number) => void;
 }) {
+  const { colors } = useTheme();
   const outline = buildOutline(segments, pageSize);
   if (outline.length < 2) return null;
 
   return (
     <View style={outlineStyles.wrap}>
-      <Text style={outlineStyles.heading}>Outline</Text>
+      <Text style={[outlineStyles.heading, { color: colors.textMuted }]}>Outline</Text>
       {outline.map((topic, i) => (
         <TouchableOpacity
           key={i}
-          style={outlineStyles.item}
+          style={[outlineStyles.item, { backgroundColor: colors.surfaceMuted, borderColor: colors.border }]}
           onPress={() => onTopicPress(topic.pageIndex)}
           activeOpacity={0.7}
         >
-          <Text style={outlineStyles.timestamp}>{formatTimestamp(topic.timestamp)}</Text>
-          <Text style={outlineStyles.title} numberOfLines={1}>{topic.title}</Text>
-          <Ionicons name="chevron-forward" size={14} color="#d1d5db" />
+          <Text style={[outlineStyles.timestamp, { color: colors.accent }]}>{formatTimestamp(topic.timestamp)}</Text>
+          <Text style={[outlineStyles.title, { color: colors.textSecondary }]} numberOfLines={1}>{topic.title}</Text>
+          <Ionicons name="chevron-forward" size={14} color={colors.textMuted} />
         </TouchableOpacity>
       ))}
     </View>
@@ -695,6 +698,7 @@ function ExportSheet({ visible, recording, segments, onClose }: {
   segments: TranscriptSegment[];
   onClose: () => void;
 }) {
+  const { colors } = useTheme();
   const note = recording.note ?? null;
   const [busy, setBusy] = useState<string | null>(null);
 
@@ -776,33 +780,33 @@ function ExportSheet({ visible, recording, segments, onClose }: {
       onRequestClose={onClose}
     >
       <TouchableOpacity style={exportStyles.overlay} activeOpacity={1} onPress={onClose} />
-      <View style={exportStyles.sheet}>
-        <View style={exportStyles.handle} />
-        <Text style={exportStyles.sheetTitle}>Export</Text>
+      <View style={[exportStyles.sheet, { backgroundColor: colors.surface }]}>
+        <View style={[exportStyles.handle, { backgroundColor: colors.border }]} />
+        <Text style={[exportStyles.sheetTitle, { color: colors.textPrimary }]}>Export</Text>
         {actions.map((action) => (
           <TouchableOpacity
             key={action.id}
-            style={[exportStyles.action, action.disabled && { opacity: 0.4 }]}
+            style={[exportStyles.action, { borderBottomColor: colors.border }, action.disabled && { opacity: 0.4 }]}
             onPress={action.disabled ? undefined : action.onPress}
             disabled={action.disabled || !!busy}
             activeOpacity={0.7}
           >
-            <View style={exportStyles.actionIcon}>
+            <View style={[exportStyles.actionIcon, { backgroundColor: colors.accentSoft }]}>
               {busy === action.id ? (
-                <ActivityIndicator size="small" color="#5B8DEF" />
+                <ActivityIndicator size="small" color={colors.accent} />
               ) : (
-                <Ionicons name={action.icon as never} size={20} color="#5B8DEF" />
+                <Ionicons name={action.icon as never} size={20} color={colors.accent} />
               )}
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={exportStyles.actionLabel}>{action.label}</Text>
-              <Text style={exportStyles.actionSub}>{action.sub}</Text>
+              <Text style={[exportStyles.actionLabel, { color: colors.textPrimary }]}>{action.label}</Text>
+              <Text style={[exportStyles.actionSub, { color: colors.textMuted }]}>{action.sub}</Text>
             </View>
-            <Ionicons name="chevron-forward" size={16} color="#d1d5db" />
+            <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
           </TouchableOpacity>
         ))}
-        <TouchableOpacity style={exportStyles.cancelBtn} onPress={onClose}>
-          <Text style={exportStyles.cancelText}>Cancel</Text>
+        <TouchableOpacity style={[exportStyles.cancelBtn, { backgroundColor: colors.surfaceMuted }]} onPress={onClose}>
+          <Text style={[exportStyles.cancelText, { color: colors.textSecondary }]}>Cancel</Text>
         </TouchableOpacity>
       </View>
     </Modal>
@@ -1093,6 +1097,7 @@ function NameSpeakersModal({ visible, recordingId, segments, onClose, onSuccess 
   onClose: () => void;
   onSuccess: () => void;
 }) {
+  const { colors } = useTheme();
   const { getToken } = useAuth();
   const getTokenRef = useRef(getToken);
   useEffect(() => { getTokenRef.current = getToken; });
@@ -1162,9 +1167,9 @@ function NameSpeakersModal({ visible, recordingId, segments, onClose, onSuccess 
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={modalStyles.kav}
         >
-          <View style={modalStyles.card}>
-            <Text style={modalStyles.title}>Name speakers</Text>
-            <Text style={modalStyles.sub}>
+          <View style={[modalStyles.card, { backgroundColor: colors.surface }]}>
+            <Text style={[modalStyles.title, { color: colors.textPrimary }]}>Name speakers</Text>
+            <Text style={[modalStyles.sub, { color: colors.textSecondary }]}>
               Rename the speakers in this recording. Changes apply to the full transcript.
             </Text>
             <ScrollView
@@ -1173,15 +1178,15 @@ function NameSpeakersModal({ visible, recordingId, segments, onClose, onSuccess 
               keyboardShouldPersistTaps="handled"
             >
               {uniqueSpeakers.length === 0 ? (
-                <Text style={modalStyles.emptyText}>
+                <Text style={[modalStyles.emptyText, { color: colors.textMuted }]}>
                   No speaker labels found in this transcript.
                 </Text>
               ) : (
                 uniqueSpeakers.map(s => (
                   <View key={s} style={{ gap: 6 }}>
-                    <Text style={modalStyles.fieldLabel}>{s}</Text>
+                    <Text style={[modalStyles.fieldLabel, { color: colors.textMuted }]}>{s}</Text>
                     <TextInput
-                      style={modalStyles.input}
+                      style={[modalStyles.input, { backgroundColor: colors.surfaceMuted, borderColor: colors.border, color: colors.textPrimary }]}
                       value={mappings[s] ?? ''}
                       onChangeText={v => setMappings(m => ({ ...m, [s]: v }))}
                       autoCapitalize="words"
@@ -1239,6 +1244,7 @@ function RetranscribeModal({ visible, recordingId, hasAudio, onClose, onSuccess 
   onClose: () => void;
   onSuccess: () => void;
 }) {
+  const { colors } = useTheme();
   const { getToken } = useAuth();
   const getTokenRef = useRef(getToken);
   useEffect(() => { getTokenRef.current = getToken; });
@@ -1274,50 +1280,52 @@ function RetranscribeModal({ visible, recordingId, hasAudio, onClose, onSuccess 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={modalStyles.backdrop}>
-        <View style={modalStyles.card}>
-          <Text style={modalStyles.title}>Re-transcribe</Text>
+        <View style={[modalStyles.card, { backgroundColor: colors.surface }]}>
+          <Text style={[modalStyles.title, { color: colors.textPrimary }]}>Re-transcribe</Text>
           {!hasAudio ? (
             <>
-              <Text style={modalStyles.emptyText}>
+              <Text style={[modalStyles.emptyText, { color: colors.textMuted }]}>
                 Audio was deleted, cannot re-transcribe.
               </Text>
               <View style={modalStyles.btnRow}>
-                <TouchableOpacity style={modalStyles.btnSecondary} onPress={onClose}>
-                  <Text style={modalStyles.btnSecondaryText}>Close</Text>
+                <TouchableOpacity style={[modalStyles.btnSecondary, { borderColor: colors.border }]} onPress={onClose}>
+                  <Text style={[modalStyles.btnSecondaryText, { color: colors.textSecondary }]}>Close</Text>
                 </TouchableOpacity>
               </View>
             </>
           ) : (
             <>
-              <Text style={modalStyles.fieldLabel}>Language</Text>
+              <Text style={[modalStyles.fieldLabel, { color: colors.textMuted }]}>Language</Text>
               <ScrollView style={{ maxHeight: 220 }} contentContainerStyle={{ gap: 6 }}>
                 {LANGUAGES.map(({ code, label }) => (
                   <TouchableOpacity
                     key={code}
                     style={[
                       modalStyles.langRow,
-                      language === code && modalStyles.langRowActive,
+                      { borderColor: colors.border, backgroundColor: colors.surface },
+                      language === code && { borderColor: colors.accent, backgroundColor: colors.accentSoft },
                     ]}
                     onPress={() => setLanguage(code)}
                     disabled={isSubmitting}
                     activeOpacity={0.7}
                   >
-                    <Text style={modalStyles.langLabel}>{label}</Text>
+                    <Text style={[modalStyles.langLabel, { color: colors.textPrimary }]}>{label}</Text>
                     {language === code && (
-                      <Ionicons name="checkmark" size={18} color="#5B8DEF" />
+                      <Ionicons name="checkmark" size={18} color={colors.accent} />
                     )}
                   </TouchableOpacity>
                 ))}
               </ScrollView>
 
-              <Text style={[modalStyles.fieldLabel, { marginTop: 6 }]}>Quality</Text>
-              <View style={modalStyles.toggleRow}>
+              <Text style={[modalStyles.fieldLabel, { marginTop: 6, color: colors.textMuted }]}>Quality</Text>
+              <View style={[modalStyles.toggleRow, { borderColor: colors.border }]}>
                 {(['standard', 'high'] as const).map(q => (
                   <TouchableOpacity
                     key={q}
                     style={[
                       modalStyles.toggleBtn,
-                      quality === q && modalStyles.toggleBtnActive,
+                      { backgroundColor: colors.surface },
+                      quality === q && { backgroundColor: colors.accent },
                     ]}
                     onPress={() => setQuality(q)}
                     disabled={isSubmitting}
@@ -1326,7 +1334,8 @@ function RetranscribeModal({ visible, recordingId, hasAudio, onClose, onSuccess 
                     <Text
                       style={[
                         modalStyles.toggleText,
-                        quality === q && modalStyles.toggleTextActive,
+                        { color: colors.textSecondary },
+                        quality === q && { color: '#ffffff' },
                       ]}
                     >
                       {q === 'standard' ? 'Standard' : 'High'}
@@ -1346,11 +1355,11 @@ function RetranscribeModal({ visible, recordingId, hasAudio, onClose, onSuccess 
 
               <View style={modalStyles.btnRow}>
                 <TouchableOpacity
-                  style={modalStyles.btnSecondary}
+                  style={[modalStyles.btnSecondary, { borderColor: colors.border }]}
                   onPress={onClose}
                   disabled={isSubmitting}
                 >
-                  <Text style={modalStyles.btnSecondaryText}>Cancel</Text>
+                  <Text style={[modalStyles.btnSecondaryText, { color: colors.textSecondary }]}>Cancel</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[modalStyles.btnPrimary, isSubmitting && { opacity: 0.6 }]}
@@ -1380,6 +1389,7 @@ function FindReplaceModal({ visible, recordingId, onClose, onSuccess }: {
   onClose: () => void;
   onSuccess: () => void;
 }) {
+  const { colors } = useTheme();
   const { getToken } = useAuth();
   const getTokenRef = useRef(getToken);
   useEffect(() => { getTokenRef.current = getToken; });
@@ -1472,12 +1482,12 @@ function FindReplaceModal({ visible, recordingId, onClose, onSuccess }: {
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={modalStyles.kav}
         >
-          <View style={modalStyles.card}>
-            <Text style={modalStyles.title}>Find & Replace</Text>
+          <View style={[modalStyles.card, { backgroundColor: colors.surface }]}>
+            <Text style={[modalStyles.title, { color: colors.textPrimary }]}>Find & Replace</Text>
 
-            <Text style={modalStyles.fieldLabel}>Find</Text>
+            <Text style={[modalStyles.fieldLabel, { color: colors.textMuted }]}>Find</Text>
             <TextInput
-              style={modalStyles.input}
+              style={[modalStyles.input, { backgroundColor: colors.surfaceMuted, borderColor: colors.border, color: colors.textPrimary }]}
               value={find}
               onChangeText={setFind}
               autoCapitalize="none"
@@ -1486,9 +1496,9 @@ function FindReplaceModal({ visible, recordingId, onClose, onSuccess }: {
               editable={!isReplacing}
             />
 
-            <Text style={[modalStyles.fieldLabel, { marginTop: 10 }]}>Replace with</Text>
+            <Text style={[modalStyles.fieldLabel, { marginTop: 10, color: colors.textMuted }]}>Replace with</Text>
             <TextInput
-              style={modalStyles.input}
+              style={[modalStyles.input, { backgroundColor: colors.surfaceMuted, borderColor: colors.border, color: colors.textPrimary }]}
               value={replace}
               onChangeText={setReplace}
               autoCapitalize="none"
@@ -1497,26 +1507,26 @@ function FindReplaceModal({ visible, recordingId, onClose, onSuccess }: {
             />
 
             <View style={modalStyles.switchRow}>
-              <Text style={modalStyles.switchLabel}>Whole word only</Text>
+              <Text style={[modalStyles.switchLabel, { color: colors.textPrimary }]}>Whole word only</Text>
               <Switch
                 value={wholeWord}
                 onValueChange={setWholeWord}
-                trackColor={{ false: '#e5e7eb', true: '#5B8DEF' }}
+                trackColor={{ false: colors.border, true: colors.accent }}
                 thumbColor="#ffffff"
                 disabled={isReplacing}
               />
             </View>
 
-            <View style={modalStyles.previewBox}>
+            <View style={[modalStyles.previewBox, { backgroundColor: colors.surfaceMuted }]}>
               {isPreviewing ? (
-                <Text style={modalStyles.previewText}>Checking…</Text>
+                <Text style={[modalStyles.previewText, { color: colors.textSecondary }]}>Checking…</Text>
               ) : preview ? (
-                <Text style={modalStyles.previewText}>
+                <Text style={[modalStyles.previewText, { color: colors.textSecondary }]}>
                   Found {preview.occurrences} occurrence{preview.occurrences === 1 ? '' : 's'} in{' '}
                   {preview.segments} segment{preview.segments === 1 ? '' : 's'}.
                 </Text>
               ) : (
-                <Text style={modalStyles.previewText}>
+                <Text style={[modalStyles.previewText, { color: colors.textMuted }]}>
                   Type in Find to preview matches.
                 </Text>
               )}
@@ -1526,11 +1536,11 @@ function FindReplaceModal({ visible, recordingId, onClose, onSuccess }: {
 
             <View style={modalStyles.btnRow}>
               <TouchableOpacity
-                style={modalStyles.btnSecondary}
+                style={[modalStyles.btnSecondary, { borderColor: colors.border }]}
                 onPress={onClose}
                 disabled={isReplacing}
               >
-                <Text style={modalStyles.btnSecondaryText}>Cancel</Text>
+                <Text style={[modalStyles.btnSecondaryText, { color: colors.textSecondary }]}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[modalStyles.btnPrimary, !canReplace && { opacity: 0.4 }]}
@@ -1829,15 +1839,15 @@ export default function RecordingDetailScreen() {
 
   if (isLoading) {
     return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#5B8DEF" />
+      <View style={[styles.centered, { backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={colors.accent} />
       </View>
     );
   }
 
   if (error || !recording) {
     return (
-      <View style={styles.centered}>
+      <View style={[styles.centered, { backgroundColor: colors.background }]}>
         <Ionicons name="alert-circle-outline" size={40} color="#EF4444" />
         <Text style={styles.errorTitle}>Failed to load recording</Text>
         <Text style={styles.errorText}>{error ?? 'Unknown error'}</Text>

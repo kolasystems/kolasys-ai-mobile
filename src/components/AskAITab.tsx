@@ -332,8 +332,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#e5e7eb',
-    backgroundColor: '#ffffff',
   },
   input: {
     flex: 1,

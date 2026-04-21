@@ -1,18 +1,17 @@
 # Kolasys AI Mobile — Claude Reference
 
-> A quick-start for a new Claude session on this repo.
+> Quick-start for a new Claude Code session on this repo.
 
 **Repo:** https://github.com/kolasystems/kolasys-ai-mobile  
 **Web backend:** https://app.kolasys.ai (tRPC API at `https://app.kolasys.ai/api/trpc`)  
-**Web repo:** `/Users/kolasys/Desktop/kolasys-ai` (or `github.com/kolasystems/kolasys-ai`)  
-**Last updated:** 2026-04-07
+**Web repo:** `~/Desktop/kolasys-ai` · `github.com/kolasystems/kolasys-ai`  
+**Last updated:** 2026-04-20
 
 ---
 
 ## What This Is
 
-React Native / Expo SDK 54 mobile companion app for Kolasys AI (meeting notes + transcription).  
-New Architecture enabled (`newArchEnabled: true` in app.json). iOS only for now (Android untested).
+React Native / Expo SDK 54 mobile companion app for Kolasys AI (AI-powered meeting notes + transcription). iOS only for now (Android untested). New Architecture enabled (`newArchEnabled: true`).
 
 ---
 
@@ -20,23 +19,28 @@ New Architecture enabled (`newArchEnabled: true` in app.json). iOS only for now 
 
 ```bash
 cd ~/Desktop/kolasys-ai-mobile
-npm install --legacy-peer-deps   # ALWAYS use --legacy-peer-deps (Clerk pulls react-dom)
+npm install --legacy-peer-deps   # ALWAYS use --legacy-peer-deps
 npx expo run:ios                 # Builds and opens in iOS Simulator
 ```
 
-Two workers (in the web repo) must be running for the full pipeline:
+Workers run on Railway 24/7 — no local workers needed for the full pipeline.  
+For local web dev only:
 ```bash
-cd ~/Desktop/kolasys-ai
-npx tsx src/workers/transcription.worker.ts
-npx tsx src/workers/summarization.worker.ts
+cd ~/Desktop/kolasys-ai && npm run dev
 ```
 
 ---
 
 ## Critical Rules
 
+### Always use --legacy-peer-deps
+```bash
+npm install <package> --legacy-peer-deps
+```
+`@clerk/clerk-expo` has a react-dom peer conflict. Every `npm install` without the flag will fail.
+
 ### Never upgrade native packages independently
-Always use `npx expo install <package>` — NOT `npm install`. These three are version-pinned to Expo SDK 54 and must NOT be changed:
+Always use `npx expo install <package>`. These are pinned to Expo SDK 54:
 
 | Package | Required version |
 |---|---|
@@ -46,57 +50,102 @@ Always use `npx expo install <package>` — NOT `npm install`. These three are v
 
 Upgrading these independently causes a JSI crash: `expected dynamic type 'boolean', but had type 'string'`.
 
-### Always use --legacy-peer-deps
-```bash
-npm install <package> --legacy-peer-deps
-```
-`@clerk/clerk-expo` has a react-dom peer conflict. Every `npm install` without `--legacy-peer-deps` will fail.
-
-### expo-file-system v19 API change
-Import from `expo-file-system/legacy` for `cacheDirectory`, `EncodingType`, `writeAsStringAsync`, `moveAsync`:
+### expo-file-system v19 legacy import
 ```typescript
-import * as FileSystem from 'expo-file-system/legacy';  // NOT 'expo-file-system'
+import * as FileSystem from 'expo-file-system/legacy'; // NOT 'expo-file-system'
 ```
 
 ### getToken must be in a useRef
-`useAuth().getToken` from Clerk is recreated on every render. Using it directly in `useCallback` or `useEffect` deps causes infinite re-render loops:
+`useAuth().getToken` is recreated on every render — always sync to a ref:
 ```typescript
 const getTokenRef = useRef(getToken);
-useEffect(() => { getTokenRef.current = getToken; });  // sync ref each render
-// Then use getTokenRef.current() — never getToken directly in deps
+useEffect(() => { getTokenRef.current = getToken; }); // no deps — runs every render
+// Use: await getTokenRef.current()
 ```
+
+### Clerk keys — NEVER mix test/live
+- Local `.env`: `pk_test_` + `sk_test_` (must match)
+- Railway + Vercel: `pk_live_` + `sk_live_`
 
 ---
 
 ## Project Structure
 
 ```
+App.tsx                          Entry — SafeAreaProvider > ThemeProvider > ClerkProvider > AuthenticatedApp
 src/
 ├── lib/
-│   ├── api.ts          Shared trpcGet/trpcPost HTTP helpers
-│   └── trpc.tsx        tRPC React client, TRPCProvider, shared types
+│   ├── theme.ts                 ThemeProvider, useTheme(), lightColors, darkColors, ThemeColors type
+│   ├── api.ts                   trpcGet / trpcPost HTTP helpers
+│   ├── trpc.tsx                 tRPC React client, TRPCProvider, shared types (Recording, Note, etc.)
+│   ├── auth.ts                  Clerk tokenCache (expo-secure-store)
+│   └── notifications.ts         Push notifications + useReadyStore (zustand)
+├── store/
+│   └── recording.store.ts       Zustand store for RecordScreen state
 ├── navigation/
-│   └── AppNavigator.tsx Bottom tabs + RecordingsStack
+│   └── AppNavigator.tsx         Bottom tabs + RecordingsStack; NavigationContainer with full navTheme
 ├── screens/
-│   ├── HomeScreen.tsx          Feed / Tasks / Calendar tabs
-│   ├── RecordScreen.tsx        expo-av recording + upload
-│   ├── RecordingsScreen.tsx    List + search
-│   ├── RecordingDetailScreen.tsx  Notes / Transcript / Actions + Export sheet
-│   └── SettingsScreen.tsx
+│   ├── HomeScreen.tsx           Feed / Tasks / Calendar tabs
+│   ├── RecordScreen.tsx         expo-av recording + S3 upload pipeline
+│   ├── RecordingsScreen.tsx     List + search
+│   ├── RecordingDetailScreen.tsx Notes / Transcript / Actions / Ask AI + Export + Modals
+│   ├── SettingsScreen.tsx       Profile, dark mode toggle, links, sign out
+│   ├── CalendarScreen.tsx       Standalone calendar (also embedded in HomeScreen)
+│   └── SignInScreen.tsx         Email + Google OAuth + MFA
 └── components/
+    ├── AskAITab.tsx             SSE streaming AI chat for RecordingDetail
     ├── RecordingCard.tsx
-    ├── StatusBadge.tsx
+    ├── StatusBadge.tsx          isDark-aware alpha backgrounds
     ├── ActionItemRow.tsx
-    └── TranscriptSegment.tsx
+    ├── TranscriptSegment.tsx
+    └── WaveformVisualizer.tsx
 ```
+
+---
+
+## Theme System
+
+Theme lives at `src/lib/theme.ts`. **There is no `src/contexts/ThemeContext.tsx`.**
+
+```typescript
+import { useTheme } from '../lib/theme';
+
+const { colors, isDark, toggleDark, mode, setMode } = useTheme();
+```
+
+- **Storage key:** `'kolasys-theme'` in AsyncStorage
+- **Values stored:** `'light' | 'dark' | 'system'`
+- **`isDark`:** derived from `mode === 'dark' || (mode === 'system' && systemScheme === 'dark')`
+- Hydrates from AsyncStorage on mount; persists on every `setMode` call
+- `toggleDark()` flips between `'light'` and `'dark'` (not system)
+
+### Color tokens (ThemeColors)
+```typescript
+colors.background       // Screen background
+colors.surface          // Card/panel background
+colors.surfaceRaised    // Elevated surface
+colors.surfaceMuted     // Subtle fill
+colors.textPrimary      // Main text
+colors.textSecondary    // Secondary text
+colors.textMuted        // Placeholder/caption
+colors.border           // Hairline borders
+colors.borderStrong     // Stronger border
+colors.accent           // #5B8DEF — primary brand color
+colors.accentSoft       // rgba(91,141,239,0.12/.22) — icon backgrounds
+colors.gradientStart/End // Header gradients
+colors.bgGradientStart/End // Full-screen gradients (RecordScreen)
+```
+
+### Dark mode status (as of 2026-04-20)
+All screens and components are fully themed. No hardcoded hex colors in production screens.
 
 ---
 
 ## API Layer
 
-The app talks to `https://app.kolasys.ai/api/trpc` (same tRPC router as the web app).
+API is at `https://app.kolasys.ai/api/trpc` (same tRPC router as web app).
 
-### Direct fetch pattern (preferred for detail screens)
+### Direct fetch (preferred for detail screens)
 ```typescript
 import { trpcGet, trpcPost } from '../lib/api';
 
@@ -104,13 +153,20 @@ const data = await trpcGet<Recording>('recordings.get', { id }, token);
 await trpcPost('recordings.updateActionItem', { id, status: 'COMPLETED' }, token);
 ```
 
-### tRPC React hooks (for list queries)
+### React hooks (for list queries with auto-refetch)
 ```typescript
-const { data, isLoading } = trpc.recordings.list.useQuery({ limit: 50 });
+const { data, isLoading, refetch } = trpc.recordings.list.useQuery({ limit: 50 });
+```
+
+### tRPC batch format (manual fetch)
+```typescript
+// GET:  /api/trpc/procedure?batch=1&input={"0":{"json":{...}}}
+// POST: /api/trpc/procedure?batch=1  body: {"0":{"json":{...}}}
+// Response: [{result:{data:{json:...}}}]
 ```
 
 ### Notes normalization
-The server returns `notes[]` (array, take:1). Always normalize:
+Server returns `notes[]` (array, take:1). Always normalize:
 ```typescript
 const data = { ...rawData, note: rawData.note ?? rawData.notes?.[0] ?? null };
 ```
@@ -120,7 +176,6 @@ const data = { ...rawData, note: rawData.note ?? rawData.notes?.[0] ?? null };
 ## Navigation
 
 ```typescript
-// Tab navigation types
 export type TabParamList = {
   Home: undefined; Record: undefined; Recordings: undefined; Settings: undefined;
 };
@@ -128,65 +183,136 @@ export type RecordingsStackParamList = {
   RecordingsList: undefined; RecordingDetail: { id: string };
 };
 
-// Navigate from Home to RecordingDetail (cross-tab)
+// Navigate from Home tab to RecordingDetail (cross-tab):
 navigation.navigate('Recordings', { screen: 'RecordingDetail', params: { id } });
 ```
+
+`AppNavigator` sets `NavigationContainer theme={navTheme}` with full color mapping + `sceneStyle`/`contentStyle` so React Navigation backgrounds respect dark mode.
 
 ---
 
 ## Key Screens
 
-### HomeScreen
-Three internal tabs:
-- **My Feed** — recordings grouped this week / last week / older
-- **Tasks** — recordings with notes collapsed; expand to lazy-load action items
-- **Calendar** — expo-calendar device events, platform icon, bot-record toggle
-
 ### RecordingDetailScreen
-Three tabs: Notes | Transcript | Actions  
-Transcript tab adds: static waveform, disabled audio player UI (audio deleted post-transcription), topic outline  
-Header: export sheet (share link, copy notes/transcript, TXT/PDF export)
+Four tabs: **Notes | Transcript | Actions | Ask AI**
+
+- **Notes tab:** Summary card + Refine Summary button (calls `recordings.refineSummary` → Claude Opus live), key points, decisions, next steps, sections — all markdown-rendered via `react-native-markdown-display`
+- **Transcript tab:** Real audio player (`expo-av` + pre-signed S3 URL with retry on 403), topic outline, paginated segments (30/page), Name Speakers modal, Find & Replace modal
+- **Actions tab:** Checkable action items with priority/assignee/due date
+- **Ask AI tab:** SSE streaming chat (`AskAITab`) against the recording transcript
+- **Export sheet:** Share link, Copy Notes/Transcript, TXT/PDF export
+- **Overflow menu (⋯):** Re-transcribe modal, Find & Replace
 
 ### RecordScreen
-`Constants.isDevice` check → shows simulator warning. Real device: mic permission → record → upload.
+- `Constants.isDevice` check — shows friendly message on simulator (no mic)
+- `expo-av` recording → PUT directly to S3 via pre-signed URL → `recordings.confirmUpload`
+- State managed locally (not via `useRecordingStore` — store exists for future use)
+
+### SettingsScreen
+- Dark mode toggle (Switch) → `toggleDark()` from `useTheme()`
+- Shows `System (Dark/Light)`, `Dark`, or `Light` as value text
 
 ---
 
-## Screen Status
+## Screen Status (2026-04-20)
 
-| Screen | Status |
+| Screen / Feature | Status |
 |---|---|
-| HomeScreen (Feed/Tasks/Calendar) | ✅ Built |
-| RecordScreen | ✅ Built |
-| RecordingsScreen | ✅ Built |
-| RecordingDetailScreen | ✅ Built |
-| SettingsScreen | ✅ Built |
-| CalendarScreen (standalone) | Built but not in nav |
+| HomeScreen (Feed / Tasks / Calendar) | ✅ Built + dark mode |
+| RecordScreen | ✅ Built + dark mode |
+| RecordingsScreen | ✅ Built + dark mode |
+| RecordingDetailScreen (4 tabs) | ✅ Built + dark mode |
+| SettingsScreen | ✅ Built + dark mode |
+| CalendarScreen (standalone) | ✅ Built + dark mode (embedded in HomeScreen) |
+| SignInScreen | ✅ Built (always light — pre-auth) |
+| AskAITab (SSE streaming) | ✅ Built + dark mode |
+| Refine Summary (Claude Opus) | ✅ Live |
+| Real audio player (S3 pre-signed) | ✅ Built |
+| Export sheet (TXT / PDF / copy) | ✅ Built |
+| Find & Replace transcript | ✅ Built |
+| Name Speakers | ✅ Built |
+| Re-transcribe modal | ✅ Built |
+| Dark mode (full app) | ✅ Complete as of 2026-04-20 |
+| Markdown rendering | ✅ react-native-markdown-display |
+| Push notifications (notes ready) | ✅ Partial — expo-notifications wired, not TestFlight |
+| Contacts screen | ❌ Not started |
+| Analytics screen | ❌ Not started |
+| Word-level audio sync | ❌ Not started |
+| TestFlight | ❌ Needs Apple Developer account |
+| Android | ❌ Untested |
 
 ---
 
-## Installed Packages
+## Installed Packages (key packages)
 
-Key packages beyond Expo defaults:
-- `@clerk/clerk-expo` v2.19.31 — auth
-- `@trpc/react-query` v11 + `@tanstack/react-query` v5 — API layer
-- `expo-av` — audio recording
-- `expo-calendar` — device calendar (Calendar tab)
-- `expo-clipboard` — copy to clipboard (export sheet)
-- `expo-file-system` (legacy) — file writes for TXT export
-- `expo-print` — PDF generation
-- `expo-sharing` — share files
-- `react-native-reanimated` v4 — animations
-- `react-native-worklets` — required peer dep for reanimated v4
+```
+@clerk/clerk-expo           ^2.19.31   Auth
+@react-native-async-storage/async-storage  2.2.0   Theme persistence
+@react-navigation/bottom-tabs / native / native-stack  ^7.x  Navigation
+@tanstack/react-query       ^5.96.2    Server state
+@trpc/react-query           ^11.16.0   API layer
+expo-av                     ~16.0.8    Audio recording + playback
+expo-blur                   ~15.0.8    (installed; BlurView NOT used — transparent on simulator)
+expo-calendar               ~15.0.8    Device calendar
+expo-clipboard              ~8.0.8     Copy to clipboard
+expo-file-system            ~19.0.21   File writes (use /legacy import)
+expo-haptics                ~15.0.8    Installed, not yet used
+expo-linear-gradient        ~15.0.8    Header + screen gradients
+expo-notifications          ~0.32.16   Push notifications
+expo-print                  ~15.0.8    PDF generation
+expo-secure-store           ~15.0.8    Clerk token cache
+expo-sharing                ~14.0.8    File sharing
+expo-task-manager           ~14.0.9    Installed, not yet used
+react-native-markdown-display  ^7.0.2  Markdown in Notes tab + summaries
+react-native-reanimated     ~4.1.1     Animations
+react-native-worklets       ^0.5.1     Required peer for reanimated v4
+superjson                   ^2.2.6     tRPC serialization
+zustand                     ^5.0.12    Global state (notifications, recording store)
+```
+
+> ⚠️ **expo-blur is installed but BlurView must NOT be used** — it renders transparent on iOS Simulator (no GPU). Use plain `View` with `backgroundColor: colors.surface` instead.
 
 ---
 
-## TypeScript Notes
+## Known Issues
 
-There are pre-existing TS errors in `src/lib/trpc.tsx` and screens that use `trpc.recordings.*`. These are caused by `createTRPCReact<any>()` not inferring router types. The app works fine at runtime — these errors are noise. Do not try to fix them by adding a full `AppRouter` type (that would import server-only Prisma code into the client).
+| Issue | Status |
+|---|---|
+| Hermes build phase warning | Harmless — pre-existing CocoaPods warning |
+| npm peer dep conflict (react-dom) | Workaround: always `--legacy-peer-deps` |
+| `trpc.recordings.list` response shape varies | Handled — code checks `data.recordings`, `data.items`, bare array |
+| BlurView transparent on simulator | Fixed — BlurView removed from all screens |
+| TypeScript errors in `src/lib/trpc.tsx` | Pre-existing noise from `createTRPCReact<any>()` — do not fix by importing server Prisma types |
 
 ---
 
-## PROGRESS.md
+## Architecture
 
-See `PROGRESS.md` for the full feature checklist, known issues, and what still needs to be built.
+```
+App.tsx
+└── SafeAreaProvider
+    └── ThemeProvider              ← src/lib/theme.ts (NOT src/contexts/ThemeContext.tsx)
+        └── ClerkProvider
+            └── AuthenticatedApp
+                ├── TRPCProvider
+                ├── RootNavigator  ← shows SignInScreen or AppNavigator
+                └── StatusBar      ← style={isDark ? 'light' : 'dark'}
+
+AppNavigator
+└── NavigationContainer theme={navTheme}   ← full React Navigation theming
+    └── BottomTabNavigator
+        ├── HomeScreen
+        ├── RecordScreen
+        ├── RecordingsStack
+        │   ├── RecordingsScreen
+        │   └── RecordingDetailScreen
+        └── SettingsScreen
+```
+
+### Key patterns
+- **Theme:** `useTheme()` from `src/lib/theme` everywhere — never `Colors.*` in screens
+- **tRPC direct:** `trpcGet`/`trpcPost` in `src/lib/api.ts` for detail screens
+- **tRPC hooks:** `trpc.X.useQuery()` for list screens with auto-refetch
+- **Stable getToken:** always via `useRef` — never in dependency arrays directly
+- **Polling:** `loadRef.current` pattern avoids self-referential `useEffect` deps
+- **Notes:** always normalize `rawData.note ?? rawData.notes?.[0] ?? null`
