@@ -13,10 +13,9 @@ import { useUser, useAuth } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Constants from 'expo-constants';
-import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useTheme, type ThemeColors } from '../lib/theme';
 import type { SettingsStackParamList } from '../navigation/AppNavigator';
+import { useTheme, type ThemeColors } from '../lib/theme';
 
 function Row({
   icon,
@@ -70,7 +69,7 @@ function Row({
   );
 }
 
-export default function SettingsScreen({ navigation }: { navigation: NativeStackNavigationProp<SettingsStackParamList> }) {
+export default function SettingsScreen({ navigation }: { navigation: NativeStackNavigationProp<SettingsStackParamList, 'SettingsMain'> }) {
   const insets = useSafeAreaInsets();
   const { user } = useUser();
   const { signOut } = useAuth();
