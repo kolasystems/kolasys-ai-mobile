@@ -46,7 +46,7 @@ export default function AnalyticsScreen() {
     );
   }
 
-  const maxWeekCount = Math.max(...data.weeklyData.map((w) => w.count), 1);
+  const maxWeekCount = Math.max(...data.weeklyData.map((w: any) => w.count), 1);
 
   return (
     <ScrollView
@@ -84,7 +84,7 @@ export default function AnalyticsScreen() {
       {/* Weekly meeting frequency */}
       <SectionCard title="Meeting Frequency" subtitle="Last 12 weeks" colors={colors}>
         <View style={styles.chart}>
-          {data.weeklyData.map((week, i) => {
+          {data.weeklyData.map((week: any, i: number) => {
             const pct = maxWeekCount > 0 ? week.count / maxWeekCount : 0;
             const barH = Math.max(pct * 80, week.count > 0 ? 6 : 2);
             return (
@@ -119,7 +119,7 @@ export default function AnalyticsScreen() {
       {data.speakerTalkTime.length > 0 && (
         <SectionCard title="Speaker Talk Time" subtitle="Top 8 across all meetings" colors={colors}>
           <View style={styles.speakerList}>
-            {data.speakerTalkTime.map((speaker, i) => {
+            {data.speakerTalkTime.map((speaker: any, i: number) => {
               const maxSecs = data.speakerTalkTime[0]?.seconds ?? 1;
               const pct = Math.round((speaker.seconds / maxSecs) * 100);
               return (
@@ -150,7 +150,7 @@ export default function AnalyticsScreen() {
       {/* Recent recordings */}
       {data.recentRecordings.length > 0 && (
         <SectionCard title="Recent Meetings" subtitle="Last 10" colors={colors}>
-          {data.recentRecordings.map((rec, i) => (
+          {data.recentRecordings.map((rec: any, i: number) => (
             <View
               key={rec.id}
               style={[

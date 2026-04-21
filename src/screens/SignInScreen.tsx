@@ -390,6 +390,15 @@ const styles = StyleSheet.create({
     height: 90,
     borderRadius: 20,
   },
+  logoContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.primary + '18',
+    marginBottom: 4,
+  },
   appName: { fontSize: 28, fontWeight: '700', letterSpacing: -0.5, color: '#111827' },
   tagline: { fontSize: 15, textAlign: 'center', paddingHorizontal: 16, color: '#6b7280' },
   googleButton: {

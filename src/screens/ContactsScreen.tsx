@@ -59,7 +59,7 @@ export default function ContactsScreen() {
   const [query, setQuery] = useState('');
   const { data, isLoading, error } = trpc.contacts.list.useQuery();
 
-  const contacts = (data ?? []).filter((c) =>
+  const contacts = (data ?? []).filter((c: any) =>
     c.name.toLowerCase().includes(query.toLowerCase())
   );
 
