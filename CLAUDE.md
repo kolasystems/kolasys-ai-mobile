@@ -214,9 +214,9 @@ Four tabs: **Notes | Transcript | Actions | Ask AI**
 
 ---
 
-## Apple Watch Phase 1 (scaffolded, 2026-04-22)
+## Apple Watch Phase 1 (✅ running on simulator, 2026-04-22)
 
-SwiftUI watch app + WatchConnectivity native bridge + RN JS module are all written. The watch target is **not yet in the Xcode project** — adding it is a manual step (see below) because it can't be done from the CLI reliably and `prebuild --clean` would wipe custom `.pbxproj` changes.
+SwiftUI watch app + WatchConnectivity native bridge + RN JS module — all wired, Xcode Watch target added, bundle ID and companion ID set, running on the paired Watch simulator. Tap mic on the wrist → iPhone starts recording; live MM:SS timer and haptic feedback on start/stop.
 
 Files scaffolded:
 - `ios/KolasysWatch Watch App/KolasysWatchApp.swift` — SwiftUI entry point
@@ -269,7 +269,7 @@ Message format:
 | AnalyticsScreen | ✅ Built — stat cards, bar chart, speaker talk time |
 | SettingsStack navigation | ✅ Contacts + Analytics accessible from Settings > DATA section |
 | Word-level audio sync | ✅ Tappable words on Transcript tab (new recordings only) |
-| Apple Watch Phase 1 | 🚧 Scaffolded — WatchConnectivity bridge + SwiftUI app + JS module built; needs Xcode target setup to compile |
+| Apple Watch Phase 1 | ✅ Running on simulator (confirmed 2026-04-22) — WatchConnectivity bridge live, wrist tap → iPhone recording, live MM:SS timer, haptic on start/stop |
 | TestFlight | ❌ Needs Apple Developer account |
 | Android | ❌ Untested |
 
