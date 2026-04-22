@@ -181,7 +181,7 @@ Repo: [github.com/kolasystems/kolasys-ai-mobile](https://github.com/kolasystems/
 ## 🔴 Not Yet Built — Next Priority
 
 ### High (build next)
-- [ ] **Apple Watch Phase 1** — SwiftUI WatchOS target, WatchConnectivity, tap crown to start/stop recording on iPhone, live timer, haptic. NO competitor has this.
+- [~] **Apple Watch Phase 1** — WatchConnectivity bridge + SwiftUI watch app + JS module built. Requires Xcode Watch target setup + Apple Developer account to test.
 - [ ] **Soundbites** — clip highlight from recording, share via public link
 - [ ] **Bot capture from mobile** — deploy meeting bot from calendar screen
 

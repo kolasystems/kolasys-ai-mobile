@@ -214,6 +214,36 @@ Four tabs: **Notes | Transcript | Actions | Ask AI**
 
 ---
 
+## Apple Watch Phase 1 (scaffolded, 2026-04-22)
+
+SwiftUI watch app + WatchConnectivity native bridge + RN JS module are all written. The watch target is **not yet in the Xcode project** — adding it is a manual step (see below) because it can't be done from the CLI reliably and `prebuild --clean` would wipe custom `.pbxproj` changes.
+
+Files scaffolded:
+- `ios/KolasysWatch Watch App/KolasysWatchApp.swift` — SwiftUI entry point
+- `ios/KolasysWatch Watch App/ContentView.swift` — tap-to-record UI with red pulse animation
+- `ios/KolasysWatch Watch App/WatchConnector.swift` — `WCSessionDelegate`, sends `{command: 'start'|'stop'}`
+- `ios/KolasysWatch/WatchBridge.swift` — iOS-side `RCTEventEmitter`, emits `WatchCommand` events to JS
+- `ios/KolasysWatch/WatchBridge.m` — Objective-C `RCT_EXTERN_MODULE` header
+- `src/lib/watchBridge.ts` — `activateWatchSession`, `sendStateToWatch`, `addWatchCommandListener`
+- `RecordScreen.tsx` listens for commands via refs; mirrors `state + elapsed` every second
+- `App.tsx` calls `activateWatchSession()` on mount
+
+Manual Xcode setup (one-time):
+1. Open `ios/KolasysAI.xcworkspace` in Xcode.
+2. **File → New → Target → watchOS → Watch App.**
+3. Product Name: `KolasysWatch` · Bundle ID: `com.kolasystems.kolasysai.watchkitapp` · Language: Swift · Interface: SwiftUI.
+4. Delete Xcode's auto-generated Swift files and drag in the three files from `ios/KolasysWatch Watch App/` instead.
+5. Add `WatchConnectivity.framework` to **both** the Watch target and the main `KolasysAI` target.
+6. Drag `ios/KolasysWatch/WatchBridge.swift` + `WatchBridge.m` into the main `KolasysAI` target; accept the bridging-header prompt.
+7. Set the Apple Team ID on both targets.
+8. Run on a paired iPhone + Watch simulator (must be paired in Devices in Xcode).
+
+Message format:
+- Watch → iOS: `{ command: 'start' | 'stop' }`
+- iOS → Watch: `{ state: 'idle' | 'recording' | …, elapsed: number }`
+
+---
+
 ## Screen Status (2026-04-20)
 
 | Screen / Feature | Status |
@@ -239,6 +269,7 @@ Four tabs: **Notes | Transcript | Actions | Ask AI**
 | AnalyticsScreen | ✅ Built — stat cards, bar chart, speaker talk time |
 | SettingsStack navigation | ✅ Contacts + Analytics accessible from Settings > DATA section |
 | Word-level audio sync | ✅ Tappable words on Transcript tab (new recordings only) |
+| Apple Watch Phase 1 | 🚧 Scaffolded — WatchConnectivity bridge + SwiftUI app + JS module built; needs Xcode target setup to compile |
 | TestFlight | ❌ Needs Apple Developer account |
 | Android | ❌ Untested |
 

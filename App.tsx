@@ -12,6 +12,7 @@ import { tokenCache } from './src/lib/auth';
 import { TRPCProvider } from './src/lib/trpc';
 import { ThemeProvider, useTheme } from './src/lib/theme';
 import { initNotifications } from './src/lib/notifications';
+import { activateWatchSession } from './src/lib/watchBridge';
 import AppNavigator from './src/navigation/AppNavigator';
 import SignInScreen from './src/screens/SignInScreen';
 
@@ -25,6 +26,9 @@ function RootNavigator() {
   useEffect(() => {
     if (isSignedIn) void initNotifications();
   }, [isSignedIn]);
+  useEffect(() => {
+    activateWatchSession();
+  }, []);
   if (!isLoaded) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background }}>

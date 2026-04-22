@@ -22,6 +22,11 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { LinearGradient } from 'expo-linear-gradient';
 import { trpcPost } from '../lib/api';
 import { useTheme } from '../lib/theme';
+import {
+  activateWatchSession,
+  addWatchCommandListener,
+  sendStateToWatch,
+} from '../lib/watchBridge';
 
 // True on a physical device, false on simulator/emulator
 const IS_REAL_DEVICE = Constants.isDevice;
@@ -349,6 +354,47 @@ export default function RecordScreen() {
       Alert.alert('Upload Error', msg);
     }
   };
+
+  // ── Apple Watch integration ──────────────────────────────────────────────────
+
+  // Refs let the listener below call the latest handlers without re-subscribing
+  // every render (handleStart / handleStop are not memoised).
+  const handleStartRef = useRef(handleStart);
+  const handleStopRef = useRef(handleStop);
+  useEffect(() => {
+    handleStartRef.current = handleStart;
+    handleStopRef.current = handleStop;
+  });
+
+  // Activate the watch session. App.tsx already activates it globally, but
+  // calling it again here is a no-op and keeps this screen self-contained.
+  useEffect(() => {
+    activateWatchSession();
+  }, []);
+
+  // Listen for start / stop commands from the paired Apple Watch.
+  useEffect(() => {
+    const unsubscribe = addWatchCommandListener((command) => {
+      if (command === 'start' && state === 'idle') {
+        void handleStartRef.current();
+      } else if (command === 'stop' && (state === 'recording' || state === 'paused')) {
+        void handleStopRef.current();
+      }
+    });
+    return unsubscribe;
+  }, [state]);
+
+  // Mirror state + elapsed to the watch so it can show a live timer.
+  useEffect(() => {
+    if (state !== 'recording') {
+      sendStateToWatch(state, 0);
+      return;
+    }
+    const interval = setInterval(() => {
+      sendStateToWatch('recording', elapsed);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [state, elapsed]);
 
   // ── Render ───────────────────────────────────────────────────────────────────
 
