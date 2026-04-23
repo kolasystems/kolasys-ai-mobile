@@ -66,6 +66,8 @@ export default function RecordScreen() {
 
   const [state, setState] = useState<RecordState>('idle');
   const [elapsed, setElapsed] = useState(0);
+  const [bookmarks, setBookmarks] = useState<number[]>([]);
+  const [lastBookmark, setLastBookmark] = useState<number | null>(null);
   const [title, setTitle] = useState('');
   const [language, setLanguage] = useState('en');
   const [recordingUri, setRecordingUri] = useState<string | null>(null);
@@ -277,6 +279,7 @@ export default function RecordScreen() {
           setElapsed(0);
           setTitle('');
           setLanguage('en');
+          setBookmarks([]);
           setState('idle');
         },
       },
@@ -336,6 +339,13 @@ export default function RecordScreen() {
         token,
       );
 
+      // TODO(Phase 3): once the recordings router accepts bookmarks, pass
+      // them to confirmUpload. For now just log — the transcript worker will
+      // get them via a follow-up mutation.
+      if (bookmarks.length > 0) {
+        console.log('[bookmarks]', recording.id, bookmarks);
+      }
+
       setState('done');
       Alert.alert('Uploaded!', 'Your recording is processing. You\u2019ll be notified when the notes are ready.', [
         {
@@ -344,6 +354,7 @@ export default function RecordScreen() {
             setRecordingUri(null);
             setElapsed(0);
             setTitle('');
+            setBookmarks([]);
             setState('idle');
           },
         },
@@ -358,12 +369,15 @@ export default function RecordScreen() {
   // ── Apple Watch integration ──────────────────────────────────────────────────
 
   // Refs let the listener below call the latest handlers without re-subscribing
-  // every render (handleStart / handleStop are not memoised).
+  // every render (handleStart / handleStop are not memoised) and read the
+  // current elapsed time without including it in the effect deps.
   const handleStartRef = useRef(handleStart);
   const handleStopRef = useRef(handleStop);
+  const elapsedRef = useRef(elapsed);
   useEffect(() => {
     handleStartRef.current = handleStart;
     handleStopRef.current = handleStop;
+    elapsedRef.current = elapsed;
   });
 
   // Activate the watch session. App.tsx already activates it globally, but
@@ -372,13 +386,18 @@ export default function RecordScreen() {
     activateWatchSession();
   }, []);
 
-  // Listen for start / stop commands from the paired Apple Watch.
+  // Listen for start / stop / bookmark commands from the paired Apple Watch.
   useEffect(() => {
     const unsubscribe = addWatchCommandListener((command) => {
       if (command === 'start' && state === 'idle') {
         void handleStartRef.current();
       } else if (command === 'stop' && (state === 'recording' || state === 'paused')) {
         void handleStopRef.current();
+      } else if (command === 'bookmark' && state === 'recording') {
+        const ts = elapsedRef.current;
+        setBookmarks((prev) => [...prev, ts]);
+        setLastBookmark(ts);
+        setTimeout(() => setLastBookmark(null), 2000);
       }
     });
     return unsubscribe;
@@ -459,6 +478,16 @@ export default function RecordScreen() {
           >
             {formatTimer(elapsed)}
           </Text>
+
+          {/* Bookmark confirmation flash (Phase 3) */}
+          {lastBookmark !== null && (
+            <View style={[styles.bookmarkFlash, { backgroundColor: colors.accent + '20' }]}>
+              <Ionicons name="bookmark" size={14} color={colors.accent} />
+              <Text style={{ color: colors.accent, fontSize: 12 }}>
+                Bookmark saved at {formatTimer(lastBookmark)}
+              </Text>
+            </View>
+          )}
 
           {/* Waveform */}
           <View style={styles.waveform}>
@@ -634,6 +663,14 @@ export default function RecordScreen() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: '#ffffff' },
+  bookmarkFlash: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 14,
+  },
   container: {
     flexGrow: 1,
     alignItems: 'center',

@@ -28,6 +28,27 @@ struct ContentView: View {
                     .foregroundColor(.gray)
             }
 
+            // Bookmark button (Phase 3) — only visible while recording
+            if connector.isRecording {
+                Button(action: {
+                    connector.sendBookmark()
+                    WKInterfaceDevice.current().play(.notification)
+                }) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "bookmark.fill")
+                            .font(.system(size: 14))
+                        Text("Bookmark")
+                            .font(.system(size: 13, weight: .medium))
+                    }
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(Color(red: 0.25, green: 0.25, blue: 0.35))
+                    .cornerRadius(20)
+                }
+                .buttonStyle(PlainButtonStyle())
+            }
+
             // Main control button
             Button(action: {
                 connector.toggleRecording()

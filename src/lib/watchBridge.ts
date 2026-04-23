@@ -7,7 +7,7 @@ const { WatchBridge } = NativeModules as {
   };
 };
 
-export type WatchCommand = 'start' | 'stop';
+export type WatchCommand = 'start' | 'stop' | 'bookmark';
 
 /** Activate the WatchConnectivity session. Call once on app start. */
 export function activateWatchSession(): void {
@@ -31,7 +31,7 @@ export function addWatchCommandListener(
   if (Platform.OS !== 'ios' || !WatchBridge) return () => {};
   const emitter = new NativeEventEmitter(WatchBridge as never);
   const sub = emitter.addListener('WatchCommand', (event: { command: string }) => {
-    if (event.command === 'start' || event.command === 'stop') {
+    if (event.command === 'start' || event.command === 'stop' || event.command === 'bookmark') {
       callback(event.command);
     }
   });

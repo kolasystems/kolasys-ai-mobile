@@ -39,6 +39,12 @@ class WatchConnector: NSObject, ObservableObject, WCSessionDelegate {
         }
     }
 
+    /// Phase 3: bookmark the current moment. The iPhone will pin the
+    /// timestamp to the active recording's transcript.
+    func sendBookmark() {
+        sendMessage(["command": "bookmark", "elapsed": elapsedSeconds])
+    }
+
     private func sendMessage(_ message: [String: Any]) {
         guard let s = session, s.isReachable else { return }
         s.sendMessage(message, replyHandler: nil, errorHandler: { err in
