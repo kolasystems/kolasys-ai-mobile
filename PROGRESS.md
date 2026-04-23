@@ -182,6 +182,7 @@ Repo: [github.com/kolasystems/kolasys-ai-mobile](https://github.com/kolasystems/
 
 ### High (build next)
 - [x] **Apple Watch Phase 1** — SwiftUI WatchOS target built and running on simulator. WatchConnectivity bridge live. Tap mic button on wrist → triggers recording on iPhone. Live MM:SS timer. Haptic on start/stop. Brand red #CA2625. No competitor has this.
+- [~] **Apple Watch Phase 2** — mobile side wired: Expo push token registration on sign-in (`registerPushToken` → `settings.updatePushToken` tRPC call), notification handler enables sound + badge, `addNotificationResponseReceivedListener` routes a `{recordingId}` payload to the RecordingDetail screen via `navigationRef`. **Pending:** web-side `settings.updatePushToken` tRPC mutation + Railway summarization-worker call to the Expo push endpoint when a recording transitions to READY.
 - [ ] **Soundbites** — clip highlight from recording, share via public link
 - [ ] **Bot capture from mobile** — deploy meeting bot from calendar screen
 

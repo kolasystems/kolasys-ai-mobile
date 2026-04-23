@@ -270,6 +270,7 @@ Message format:
 | SettingsStack navigation | ✅ Contacts + Analytics accessible from Settings > DATA section |
 | Word-level audio sync | ✅ Tappable words on Transcript tab (new recordings only) |
 | Apple Watch Phase 1 | ✅ Running on simulator (confirmed 2026-04-22) — WatchConnectivity bridge live, wrist tap → iPhone recording, live MM:SS timer, haptic on start/stop |
+| Apple Watch Phase 2 | 🚧 Mobile side wired (2026-04-23) — Expo push token registration + `settings.updatePushToken` call + notification-tap navigation via `navigationRef`. Needs web `settings.updatePushToken` mutation + worker-side Expo push send to go live |
 | TestFlight | ❌ Needs Apple Developer account |
 | Android | ❌ Untested |
 

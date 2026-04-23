@@ -1,8 +1,13 @@
-// Local-notification helpers. No APNs required — everything here is device-local.
+// Notification helpers. Local in-app pings work without APNs; remote push
+// (used by Apple Watch Phase 2) requires an Expo push token registered with
+// the server.
 
 import * as Notifications from 'expo-notifications';
+import * as Device from 'expo-device';
+import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { create } from 'zustand';
+import { trpcPost } from './api';
 
 // ─── Handler + permissions ────────────────────────────────────────────────────
 
@@ -16,8 +21,8 @@ export async function initNotifications(): Promise<void> {
     handleNotification: async () => ({
       shouldShowBanner: true,
       shouldShowList: true,
-      shouldPlaySound: false,
-      shouldSetBadge: false,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
     }),
   });
 
@@ -31,8 +36,52 @@ export async function initNotifications(): Promise<void> {
   const { status } = await Notifications.getPermissionsAsync();
   if (status !== 'granted') {
     await Notifications.requestPermissionsAsync({
-      ios: { allowAlert: true, allowBadge: false, allowSound: false },
+      ios: { allowAlert: true, allowBadge: true, allowSound: true },
     });
+  }
+}
+
+// ─── Expo push token registration (Phase 2: notes-ready push) ────────────────
+
+/** Register the device's Expo push token with the backend. Call once after
+ *  sign-in. Safe to call multiple times — the server mutation is idempotent.
+ *  No-op on the simulator (Device.isDevice === false) and on platforms other
+ *  than iOS. */
+export async function registerPushToken(
+  getToken: () => Promise<string | null>,
+): Promise<void> {
+  if (!Device.isDevice) return;
+
+  try {
+    const { status: existing } = await Notifications.getPermissionsAsync();
+    let status = existing;
+    if (status !== 'granted') {
+      const res = await Notifications.requestPermissionsAsync({
+        ios: { allowAlert: true, allowBadge: true, allowSound: true },
+      });
+      status = res.status;
+    }
+    if (status !== 'granted') return;
+
+    const projectId =
+      (Constants.expoConfig as { extra?: { eas?: { projectId?: string } } } | null)
+        ?.extra?.eas?.projectId ??
+      (Constants as { easConfig?: { projectId?: string } }).easConfig?.projectId;
+
+    const tokenResult = projectId
+      ? await Notifications.getExpoPushTokenAsync({ projectId })
+      : await Notifications.getExpoPushTokenAsync();
+
+    const token = tokenResult.data;
+    if (!token) return;
+
+    const authToken = await getToken();
+    await trpcPost('settings.updatePushToken', { token }, authToken);
+  } catch (err) {
+    // Non-fatal: offline, missing projectId, backend procedure not yet
+    // deployed, etc. The notes-ready push just won't work until this succeeds
+    // on a later launch.
+    console.warn('[registerPushToken]', err instanceof Error ? err.message : err);
   }
 }
 

@@ -8,12 +8,14 @@ import { ClerkProvider, useAuth } from '@clerk/clerk-expo';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Constants from 'expo-constants';
 
+import * as Notifications from 'expo-notifications';
+
 import { tokenCache } from './src/lib/auth';
 import { TRPCProvider } from './src/lib/trpc';
 import { ThemeProvider, useTheme } from './src/lib/theme';
-import { initNotifications } from './src/lib/notifications';
+import { initNotifications, registerPushToken } from './src/lib/notifications';
 import { activateWatchSession } from './src/lib/watchBridge';
-import AppNavigator from './src/navigation/AppNavigator';
+import AppNavigator, { navigationRef } from './src/navigation/AppNavigator';
 import SignInScreen from './src/screens/SignInScreen';
 
 const CLERK_PUBLISHABLE_KEY =
@@ -21,13 +23,33 @@ const CLERK_PUBLISHABLE_KEY =
   'pk_test_cG9zc2libGUtdHJvbGwtMTUuY2xlcmsuYWNjb3VudHMuZGV2JA';
 
 function RootNavigator() {
-  const { isSignedIn, isLoaded } = useAuth();
+  const { isSignedIn, isLoaded, getToken } = useAuth();
   const { colors } = useTheme();
   useEffect(() => {
-    if (isSignedIn) void initNotifications();
-  }, [isSignedIn]);
+    if (!isSignedIn) return;
+    void initNotifications();
+    void registerPushToken(getToken);
+  }, [isSignedIn, getToken]);
   useEffect(() => {
     activateWatchSession();
+  }, []);
+
+  // Tapping a notes-ready push navigates to that recording. Works for
+  // notifications received while the app is foreground/background; cold-
+  // launch handling is a Phase 2 follow-up.
+  useEffect(() => {
+    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+      const data = response.notification.request.content.data as
+        | { recordingId?: string }
+        | undefined;
+      if (data?.recordingId && navigationRef.isReady()) {
+        (navigationRef as { navigate: (route: string, params?: unknown) => void }).navigate(
+          'Recordings',
+          { screen: 'RecordingDetail', params: { id: data.recordingId } },
+        );
+      }
+    });
+    return () => sub.remove();
   }, []);
   if (!isLoaded) {
     return (

@@ -5,6 +5,7 @@ import {
   NavigationContainer,
   DefaultTheme,
   DarkTheme,
+  createNavigationContainerRef,
   type Theme,
 } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -35,6 +36,10 @@ export type SettingsStackParamList = {
   Contacts: undefined;
   Analytics: undefined;
 };
+
+/** Navigation container ref — used by the push-notification response listener
+ *  to navigate to a RecordingDetail from outside the React tree. */
+export const navigationRef = createNavigationContainerRef();
 
 const Stack = createNativeStackNavigator<RecordingsStackParamList>();
 const SettingsStackInstance = createNativeStackNavigator<SettingsStackParamList>();
@@ -121,7 +126,7 @@ export default function AppNavigator() {
   );
 
   return (
-    <NavigationContainer theme={navTheme}>
+    <NavigationContainer ref={navigationRef} theme={navTheme}>
       <Tab.Navigator
         screenOptions={({ route }) => ({
           tabBarIcon: ({ focused, color, size }) => {
