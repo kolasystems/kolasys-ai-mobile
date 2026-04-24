@@ -5,7 +5,6 @@ import {
   StyleSheet,
   FlatList,
   TouchableOpacity,
-  ActivityIndicator,
   RefreshControl,
   ScrollView,
   Animated,
@@ -18,29 +17,67 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { trpcGet, trpcPost } from '../lib/api';
 import { useTheme } from '../lib/theme';
 
-type Priority = 'LOW' | 'MEDIUM' | 'HIGH';
+type Priority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+type Status = 'OPEN' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
 type Filter = 'all' | 'open' | 'completed';
 
-interface ActionItem {
+interface FlatActionItem {
   id: string;
   title: string;
-  completed: boolean;
-  dueDate: string | null;
+  status: Status;
   priority: Priority;
-  meetingId: string | null;
-  meetingTitle: string | null;
+  dueDate: string | null;
+  recordingId: string;
+  recordingTitle: string;
   createdAt: string;
+}
+
+interface ListItem {
+  id: string;
+  title: string;
+  status: string;
+  _count?: { notes?: number };
+  createdAt?: string;
+}
+
+interface RecordingWithNotes {
+  id: string;
+  title: string;
+  createdAt?: string;
+  note?: {
+    actionItems?: Array<{
+      id: string;
+      title: string;
+      status: Status;
+      priority: Priority;
+      dueDate: string | null;
+    }>;
+  } | null;
+  notes?: Array<{
+    actionItems?: Array<{
+      id: string;
+      title: string;
+      status: Status;
+      priority: Priority;
+      dueDate: string | null;
+    }>;
+  }>;
 }
 
 const PRIORITY_COLOR: Record<Priority, { bg: string; text: string; label: string }> = {
   LOW:    { bg: '#E5E7EB', text: '#4B5563', label: 'Low' },
   MEDIUM: { bg: '#FEF3C7', text: '#B45309', label: 'Medium' },
   HIGH:   { bg: '#FEE2E2', text: '#CA2625', label: 'High' },
+  URGENT: { bg: '#FCA5A5', text: '#7F1D1D', label: 'Urgent' },
 };
 
 function formatDueDate(iso: string): string {
   const d = new Date(iso);
   return `Due ${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+}
+
+function isDone(status: Status): boolean {
+  return status === 'COMPLETED' || status === 'CANCELLED';
 }
 
 function SkeletonCard() {
@@ -68,7 +105,7 @@ export default function ActionItemsScreen() {
   const { colors, isDark } = useTheme();
   const { getToken } = useAuth();
   const insets = useSafeAreaInsets();
-  const [items, setItems] = useState<ActionItem[] | null>(null);
+  const [items, setItems] = useState<FlatActionItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<Filter>('all');
@@ -81,8 +118,54 @@ export default function ActionItemsScreen() {
     setError(null);
     try {
       const token = await getTokenRef.current();
-      const data = await trpcGet<ActionItem[]>('actionItem.list', {}, token);
-      setItems(Array.isArray(data) ? data : []);
+
+      // Step 1: list recordings. Server returns { items: [...], nextCursor }.
+      const listRes = await trpcGet<{ items?: ListItem[] } | ListItem[]>(
+        'recordings.list',
+        { limit: 50 },
+        token,
+      );
+      const list: ListItem[] = Array.isArray(listRes)
+        ? listRes
+        : (listRes?.items ?? []);
+
+      // Step 2: for each READY recording with notes, fetch details in
+      // parallel and flatten its actionItems. recordings.list doesn't
+      // include actionItems, so a per-id fetch is required.
+      const candidates = list.filter(
+        (r) => r.status === 'READY' && (r._count?.notes ?? 0) > 0,
+      );
+
+      const detailResults = await Promise.all(
+        candidates.map(async (r) => {
+          try {
+            return await trpcGet<RecordingWithNotes>('recordings.get', { id: r.id }, token);
+          } catch {
+            return null;
+          }
+        }),
+      );
+
+      const flat: FlatActionItem[] = [];
+      for (const rec of detailResults) {
+        if (!rec) continue;
+        const note = rec.note ?? rec.notes?.[0];
+        const ais = note?.actionItems ?? [];
+        for (const ai of ais) {
+          flat.push({
+            id: ai.id,
+            title: ai.title,
+            status: ai.status,
+            priority: ai.priority,
+            dueDate: ai.dueDate ?? null,
+            recordingId: rec.id,
+            recordingTitle: rec.title,
+            createdAt: rec.createdAt ?? new Date().toISOString(),
+          });
+        }
+      }
+
+      setItems(flat);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load action items.');
       setItems([]);
@@ -98,26 +181,31 @@ export default function ActionItemsScreen() {
     void load(true);
   };
 
-  const toggleComplete = async (item: ActionItem) => {
-    const next = !item.completed;
-    setItems((prev) => prev?.map((x) => (x.id === item.id ? { ...x, completed: next } : x)) ?? null);
+  const toggleComplete = async (item: FlatActionItem) => {
+    const nextStatus: Status = isDone(item.status) ? 'OPEN' : 'COMPLETED';
+    // Optimistic UI
+    setItems((prev) =>
+      prev?.map((x) => (x.id === item.id ? { ...x, status: nextStatus } : x)) ?? null,
+    );
     try {
       const token = await getTokenRef.current();
-      await trpcPost('actionItem.update', { id: item.id, completed: next }, token);
+      await trpcPost('recordings.updateActionItem', { id: item.id, status: nextStatus }, token);
     } catch {
-      // Revert on failure
-      setItems((prev) => prev?.map((x) => (x.id === item.id ? { ...x, completed: !next } : x)) ?? null);
+      // Revert
+      setItems((prev) =>
+        prev?.map((x) => (x.id === item.id ? { ...x, status: item.status } : x)) ?? null,
+      );
     }
   };
 
   const filtered = useMemo(() => {
     if (!items) return [];
-    if (filter === 'open') return items.filter((i) => !i.completed);
-    if (filter === 'completed') return items.filter((i) => i.completed);
+    if (filter === 'open') return items.filter((i) => !isDone(i.status));
+    if (filter === 'completed') return items.filter((i) => isDone(i.status));
     return items;
   }, [items, filter]);
 
-  const openCount = items?.filter((i) => !i.completed).length ?? 0;
+  const openCount = items?.filter((i) => !isDone(i.status)).length ?? 0;
 
   const gradientColors: [string, string] = isDark
     ? ['#1a0a0a', '#2d1515']
@@ -196,26 +284,27 @@ export default function ActionItemsScreen() {
             </View>
           }
           renderItem={({ item }) => {
-            const p = PRIORITY_COLOR[item.priority];
+            const p = PRIORITY_COLOR[item.priority] ?? PRIORITY_COLOR.LOW;
+            const done = isDone(item.status);
             return (
               <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                 <TouchableOpacity
                   onPress={() => toggleComplete(item)}
                   style={[
                     styles.checkbox,
-                    { borderColor: item.completed ? colors.accent : colors.borderStrong },
-                    item.completed && { backgroundColor: colors.accent },
+                    { borderColor: done ? colors.accent : colors.borderStrong },
+                    done && { backgroundColor: colors.accent },
                   ]}
                   activeOpacity={0.7}
                 >
-                  {item.completed && <Ionicons name="checkmark" size={14} color="#ffffff" />}
+                  {done && <Ionicons name="checkmark" size={14} color="#ffffff" />}
                 </TouchableOpacity>
                 <View style={{ flex: 1, gap: 6 }}>
                   <Text
                     style={[
                       styles.cardTitle,
-                      { color: item.completed ? colors.textMuted : colors.textPrimary },
-                      item.completed && { textDecorationLine: 'line-through' },
+                      { color: done ? colors.textMuted : colors.textPrimary },
+                      done && { textDecorationLine: 'line-through' },
                     ]}
                     numberOfLines={2}
                   >
@@ -230,11 +319,11 @@ export default function ActionItemsScreen() {
                         {formatDueDate(item.dueDate)}
                       </Text>
                     )}
-                    {item.meetingTitle && (
+                    {item.recordingTitle && (
                       <View style={[styles.meetingChip, { backgroundColor: colors.surfaceMuted }]}>
                         <Ionicons name="mic-outline" size={10} color={colors.textMuted} />
                         <Text style={{ fontSize: 10, color: colors.textMuted }} numberOfLines={1}>
-                          {item.meetingTitle}
+                          {item.recordingTitle}
                         </Text>
                       </View>
                     )}

@@ -47,7 +47,7 @@ export default function TemplatesScreen() {
     setError(null);
     try {
       const token = await getTokenRef.current();
-      const data = await trpcGet<Template[]>('template.list', {}, token);
+      const data = await trpcGet<Template[]>('templates.list', {}, token);
       setTemplates(Array.isArray(data) ? data : []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load templates.');
@@ -92,7 +92,11 @@ export default function TemplatesScreen() {
           <TouchableOpacity
             style={[styles.newBtn, { backgroundColor: colors.accent }]}
             onPress={() =>
-              Alert.alert('New Template', 'Template editor coming soon on mobile. Use the web app for now.')
+              Alert.alert(
+                'New Template',
+                'Template editor coming soon on mobile. Use the web app at app.kolasys.ai for now.',
+                [{ text: 'OK' }],
+              )
             }
             activeOpacity={0.85}
           >
