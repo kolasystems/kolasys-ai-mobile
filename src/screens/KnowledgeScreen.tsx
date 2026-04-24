@@ -10,28 +10,29 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '@clerk/clerk-expo';
 import { LinearGradient } from 'expo-linear-gradient';
 import { trpcGet } from '../lib/api';
 import { useTheme } from '../lib/theme';
 
-type EntryType = 'PERSON' | 'COMPANY' | 'TOPIC';
+type EntryType = 'PERSON' | 'TOPIC' | 'PROJECT';
 
 interface KnowledgeEntry {
   id: string;
   type: EntryType;
   name: string;
-  summary: string;
-  mentionCount: number;
-  lastMentioned: string;
-  avatarUrl: string | null;
+  mentions: number;
+  firstSeen: string;
+  lastSeen: string;
+  recordingLinks: Array<{ recordingId: string }>;
 }
 
-const TYPE_ORDER: EntryType[] = ['PERSON', 'COMPANY', 'TOPIC'];
+const TYPE_ORDER: EntryType[] = ['PERSON', 'TOPIC', 'PROJECT'];
 const TYPE_LABEL: Record<EntryType, string> = {
   PERSON: 'People',
-  COMPANY: 'Companies',
   TOPIC: 'Topics',
+  PROJECT: 'Projects',
 };
 
 function initials(name: string): string {
@@ -55,6 +56,7 @@ export default function KnowledgeScreen() {
   const { colors, isDark } = useTheme();
   const { getToken } = useAuth();
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation();
   const [entries, setEntries] = useState<KnowledgeEntry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
@@ -69,7 +71,11 @@ export default function KnowledgeScreen() {
     setError(null);
     try {
       const token = await getTokenRef.current();
-      const data = await trpcGet<KnowledgeEntry[]>('knowledge.list', {}, token);
+      const data = await trpcGet<KnowledgeEntry[]>(
+        'knowledge.getTopEntities',
+        { limit: 50 },
+        token,
+      );
       setEntries(Array.isArray(data) ? data : []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load knowledge.');
@@ -85,10 +91,12 @@ export default function KnowledgeScreen() {
     if (!entries) return {} as Record<EntryType, KnowledgeEntry[]>;
     const q = query.trim().toLowerCase();
     const match = q
-      ? entries.filter((e) => e.name.toLowerCase().includes(q) || e.summary.toLowerCase().includes(q))
+      ? entries.filter((e) => e.name.toLowerCase().includes(q))
       : entries;
-    const byType: Record<EntryType, KnowledgeEntry[]> = { PERSON: [], COMPANY: [], TOPIC: [] };
-    for (const e of match) byType[e.type].push(e);
+    const byType: Record<EntryType, KnowledgeEntry[]> = { PERSON: [], TOPIC: [], PROJECT: [] };
+    for (const e of match) {
+      if (byType[e.type]) byType[e.type].push(e);
+    }
     return byType;
   }, [entries, query]);
 
@@ -115,6 +123,13 @@ export default function KnowledgeScreen() {
         end={{ x: 1, y: 1 }}
         style={[styles.header, { paddingTop: insets.top + 12 }]}
       >
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={[styles.backBtn, { top: insets.top + 8 }]}
+          hitSlop={12}
+        >
+          <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
+        </TouchableOpacity>
         <Text style={[styles.title, { color: colors.textPrimary }]}>Knowledge</Text>
         <View
           style={[
@@ -126,7 +141,7 @@ export default function KnowledgeScreen() {
           <TextInput
             value={query}
             onChangeText={setQuery}
-            placeholder="Search people, companies, topics…"
+            placeholder="Search people, topics, projects…"
             placeholderTextColor={colors.textMuted}
             style={[styles.searchInput, { color: colors.textPrimary }]}
             autoCapitalize="none"
@@ -175,6 +190,7 @@ export default function KnowledgeScreen() {
                 </Text>
                 {rows.map((entry) => {
                   const isOpen = expanded.has(entry.id);
+                  const recCount = entry.recordingLinks?.length ?? 0;
                   return (
                     <TouchableOpacity
                       key={entry.id}
@@ -192,21 +208,23 @@ export default function KnowledgeScreen() {
                         <Text style={[styles.name, { color: colors.textPrimary }]} numberOfLines={1}>
                           {entry.name}
                         </Text>
-                        <Text
-                          style={[styles.summary, { color: colors.textSecondary }]}
-                          numberOfLines={isOpen ? undefined : 1}
-                        >
-                          {entry.summary}
+                        <Text style={[styles.summary, { color: colors.textSecondary }]} numberOfLines={1}>
+                          {entry.mentions} {entry.mentions === 1 ? 'mention' : 'mentions'} across {recCount} recording{recCount === 1 ? '' : 's'}
                         </Text>
                         {isOpen && (
-                          <Text style={{ fontSize: 11, color: colors.textMuted, marginTop: 4 }}>
-                            Last mentioned {formatDate(entry.lastMentioned)}
-                          </Text>
+                          <View style={{ marginTop: 6, gap: 2 }}>
+                            <Text style={{ fontSize: 11, color: colors.textMuted }}>
+                              First seen {formatDate(entry.firstSeen)}
+                            </Text>
+                            <Text style={{ fontSize: 11, color: colors.textMuted }}>
+                              Last mentioned {formatDate(entry.lastSeen)}
+                            </Text>
+                          </View>
                         )}
                       </View>
                       <View style={[styles.countChip, { backgroundColor: colors.accentSoft }]}>
                         <Text style={{ fontSize: 11, fontWeight: '700', color: colors.accent }}>
-                          {entry.mentionCount}×
+                          {entry.mentions}×
                         </Text>
                       </View>
                     </TouchableOpacity>
@@ -229,7 +247,13 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 22,
     gap: 12,
   },
-  title: { fontSize: 26, fontWeight: '800', letterSpacing: -0.4 },
+  backBtn: {
+    position: 'absolute',
+    left: 12,
+    zIndex: 10,
+    padding: 8,
+  },
+  title: { fontSize: 26, fontWeight: '800', letterSpacing: -0.4, marginLeft: 40 },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',

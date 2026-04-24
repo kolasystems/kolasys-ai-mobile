@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '@clerk/clerk-expo';
 import { LinearGradient } from 'expo-linear-gradient';
 import { trpcGet } from '../lib/api';
@@ -19,16 +20,20 @@ interface Template {
   id: string;
   name: string;
   description: string;
-  promptText: string;
-  isDefault: boolean;
-  usageCount: number;
+  prompt: string;
   category: string | null;
+  structure: unknown;
+  autoApplyRules: unknown;
+  isDefault: boolean;
+  isGlobal: boolean;
+  orgId: string | null;
 }
 
 export default function TemplatesScreen() {
   const { colors, isDark } = useTheme();
   const { getToken } = useAuth();
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation();
   const [templates, setTemplates] = useState<Template[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -75,6 +80,13 @@ export default function TemplatesScreen() {
         end={{ x: 1, y: 1 }}
         style={[styles.header, { paddingTop: insets.top + 12 }]}
       >
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={[styles.backBtn, { top: insets.top + 8 }]}
+          hitSlop={12}
+        >
+          <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
+        </TouchableOpacity>
         <View style={styles.headerRow}>
           <Text style={[styles.title, { color: colors.textPrimary }]}>Templates</Text>
           <TouchableOpacity
@@ -144,11 +156,14 @@ export default function TemplatesScreen() {
                 {item.description}
               </Text>
               <View style={styles.metaRow}>
-                <Text style={{ fontSize: 11, color: colors.textMuted }}>
-                  Used {item.usageCount} {item.usageCount === 1 ? 'time' : 'times'}
-                </Text>
+                {item.isGlobal && (
+                  <View style={styles.chipRow}>
+                    <Ionicons name="globe-outline" size={11} color={colors.textMuted} />
+                    <Text style={{ fontSize: 11, color: colors.textMuted }}>Global</Text>
+                  </View>
+                )}
                 {item.isDefault && (
-                  <View style={styles.defaultRow}>
+                  <View style={styles.chipRow}>
                     <Ionicons name="star" size={11} color={colors.accent} />
                     <Text style={{ fontSize: 11, fontWeight: '700', color: colors.accent }}>
                       Default
@@ -156,11 +171,11 @@ export default function TemplatesScreen() {
                   </View>
                 )}
               </View>
-              {isOpen && (
+              {isOpen && !!item.prompt && (
                 <View style={[styles.promptBox, { backgroundColor: colors.surfaceMuted, borderColor: colors.border }]}>
                   <Text style={[styles.promptLabel, { color: colors.textMuted }]}>PROMPT</Text>
                   <Text style={{ fontSize: 13, color: colors.textPrimary, lineHeight: 19 }}>
-                    {item.promptText}
+                    {item.prompt}
                   </Text>
                 </View>
               )}
@@ -179,8 +194,14 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 22,
     borderBottomRightRadius: 22,
   },
+  backBtn: {
+    position: 'absolute',
+    left: 12,
+    zIndex: 10,
+    padding: 8,
+  },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  title: { fontSize: 26, fontWeight: '800', letterSpacing: -0.4 },
+  title: { fontSize: 26, fontWeight: '800', letterSpacing: -0.4, marginLeft: 40 },
   newBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -203,7 +224,7 @@ const styles = StyleSheet.create({
   catBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
   desc: { fontSize: 13, lineHeight: 18 },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 2 },
-  defaultRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  chipRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   promptBox: {
     padding: 10,
     borderRadius: 10,
