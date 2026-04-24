@@ -149,13 +149,13 @@ export default function CalendarScreen() {
       `Send Kolasys AI bot to "${event.title}"?\n\nThe bot will join and record the meeting automatically.`,
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Deploy Bot', onPress: () => { navigation.navigate('Record'); } },
+        { text: 'Deploy Bot', onPress: () => { (navigation as any).navigate('Record'); } },
       ]
     );
   };
 
   const handleRecordDevice = (_event: CalendarEvent) => {
-    navigation.navigate('Record');
+    (navigation as any).navigate('Record');
   };
 
   const grouped = groupByDate(events);

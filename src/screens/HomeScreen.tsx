@@ -704,7 +704,7 @@ export default function HomeScreen() {
   const { getToken } = useAuth();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<Nav>();
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const [activeTab, setActiveTab] = useState<HomeTab>('feed');
 
   const firstName = user?.firstName ?? user?.username ?? 'there';
@@ -760,28 +760,71 @@ export default function HomeScreen() {
       >
         {/* Gradient Header */}
         <LinearGradient
-          colors={[colors.gradientStart, colors.gradientEnd]}
+          colors={
+            isDark
+              ? ['#1a0a0a', '#2d1515', '#1a1a2e']
+              : ['#fff8f8', '#ffe8e8', '#f0f0ff']
+          }
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={[styles.headerGradient, { paddingTop: insets.top + 16 }]}
         >
           <View style={styles.headerRow}>
             <View>
-              <Text style={styles.greeting}>Hello, {firstName}</Text>
-              <Text style={styles.greetingSub}>Your meetings at a glance</Text>
+              <Text style={[styles.greeting, { color: isDark ? '#ffffff' : '#111827' }]}>
+                Hello, {firstName}
+              </Text>
+              <Text
+                style={[
+                  styles.greetingSub,
+                  { color: isDark ? 'rgba(255,255,255,0.75)' : colors.textSecondary },
+                ]}
+              >
+                Your meetings at a glance
+              </Text>
             </View>
             <TouchableOpacity
-              style={styles.recordBtn}
-              onPress={() => navigation.navigate('Record')}
+              style={[styles.recordBtn, { backgroundColor: colors.accent }]}
+              onPress={() => (navigation as any).navigate('Record')}
               activeOpacity={0.85}
             >
-              <Ionicons name="mic" size={18} color={colors.accent} />
-              <Text style={[styles.recordBtnText, { color: colors.accent }]}>Record</Text>
+              <Ionicons name="mic" size={18} color="#ffffff" />
+              <Text style={[styles.recordBtnText, { color: '#ffffff' }]}>Record</Text>
             </TouchableOpacity>
           </View>
         </LinearGradient>
 
         <View style={styles.content}>
+          {/* Quick-access cards — Knowledge & Templates */}
+          <View style={styles.quickRow}>
+            <TouchableOpacity
+              style={[styles.quickCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
+              onPress={() => (navigation as any).navigate('Knowledge')}
+              activeOpacity={0.85}
+            >
+              <View style={[styles.quickIconWrap, { backgroundColor: colors.accentSoft }]}>
+                <Ionicons name="library-outline" size={20} color={colors.accent} />
+              </View>
+              <Text style={[styles.quickTitle, { color: colors.textPrimary }]}>Knowledge Base</Text>
+              <Text style={[styles.quickSub, { color: colors.textMuted }]} numberOfLines={2}>
+                People & topics from meetings
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.quickCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
+              onPress={() => (navigation as any).navigate('Templates')}
+              activeOpacity={0.85}
+            >
+              <View style={[styles.quickIconWrap, { backgroundColor: colors.accentSoft }]}>
+                <Ionicons name="documents-outline" size={20} color={colors.accent} />
+              </View>
+              <Text style={[styles.quickTitle, { color: colors.textPrimary }]}>Templates</Text>
+              <Text style={[styles.quickSub, { color: colors.textMuted }]} numberOfLines={2}>
+                Reusable meeting prompts
+              </Text>
+            </TouchableOpacity>
+          </View>
+
           {/* Ready banner */}
           {readyQueue.map(item => (
             <TouchableOpacity
@@ -914,4 +957,21 @@ const styles = StyleSheet.create({
   readyTitle: { fontSize: 14, fontWeight: '700', color: '#ffffff' },
   readySub: { fontSize: 12, color: '#ffffffcc', marginTop: 1 },
   readyClose: { padding: 4 },
+  quickRow: { flexDirection: 'row', gap: 10 },
+  quickCard: {
+    flex: 1,
+    padding: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 8,
+  },
+  quickIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quickTitle: { fontSize: 14, fontWeight: '700' },
+  quickSub: { fontSize: 12, lineHeight: 16 },
 });
