@@ -5,7 +5,7 @@
 **Repo:** https://github.com/kolasystems/kolasys-ai-mobile  
 **Web backend:** https://app.kolasys.ai (tRPC API at `https://app.kolasys.ai/api/trpc`)  
 **Web repo:** `~/Desktop/kolasys-ai` · `github.com/kolasystems/kolasys-ai`  
-**Last updated:** 2026-04-20
+**Last updated:** 2026-04-24
 
 ---
 
@@ -66,6 +66,35 @@ useEffect(() => { getTokenRef.current = getToken; }); // no deps — runs every 
 ### Clerk keys — NEVER mix test/live
 - Local `.env`: `pk_test_` + `sk_test_` (must match)
 - Railway + Vercel: `pk_live_` + `sk_live_`
+
+### iOS Build — CocoaPods objectVersion fix
+After any Xcode 16 upgrade or fresh clone, run before `pod install`:
+```bash
+sed -i '' 's/objectVersion = 70/objectVersion = 60/' ios/KolasysAI.xcodeproj/project.pbxproj
+```
+Xcode 16 writes `objectVersion = 70` which CocoaPods 1.16.x cannot parse (`ArgumentError - Unable to find compatibility version string for object version '70'`). Safe to apply — Xcode ignores this field at build time.
+
+### WatchBridge file reference paths
+If you see `Build input file cannot be found: '.../ios/WatchBridge.swift'`, the pbxproj has the Watch bridge files registered at the wrong relative path. Fix:
+```bash
+sed -i '' 's/path = WatchBridge\.swift;/path = KolasysAI\/WatchBridge.swift;/' ios/KolasysAI.xcodeproj/project.pbxproj
+sed -i '' 's/path = WatchBridge\.m;/path = KolasysAI\/WatchBridge.m;/' ios/KolasysAI.xcodeproj/project.pbxproj
+```
+The Swift + ObjC files live in `ios/KolasysAI/` but some tooling writes the refs as bare filenames.
+
+### Watch app deployment
+`npx expo run:ios` only deploys the **iPhone** target. After every `expo run:ios`, reinstall the Watch app:
+1. `open ios/KolasysAI.xcworkspace`
+2. Switch scheme to `KolasysWatch Watch App`
+3. Select paired Apple Watch as destination
+4. Cmd+R
+
+### Metro
+Always keep a separate terminal running:
+```bash
+npx expo start
+```
+After a build, shake phone → **Reload** to pick up JS changes. Use `--tunnel` on a physical device if local-network DNS is flaky.
 
 ---
 
@@ -171,14 +200,36 @@ Server returns `notes[]` (array, take:1). Always normalize:
 const data = { ...rawData, note: rawData.note ?? rawData.notes?.[0] ?? null };
 ```
 
+### Confirmed working procedures (2026-04-24)
+```
+recordings.list          → includes nested actionItems[] per recording
+recordings.get           → single recording detail
+knowledge.getTopEntities → input: { limit: 50 }, types: PERSON | TOPIC | PROJECT
+templates.list           → no input, returns org + global templates
+ai.ask                   → POST, input: { question, context? }
+settings.updatePushToken → POST, input: { token }
+```
+
+WRONG procedure names (all return 404):
+- `actionItem.list`  → use `recordings.list` and extract `.actionItems[]`
+- `template.list`    → correct is `templates.list` (plural namespace)
+- `knowledge.list`   → correct is `knowledge.getTopEntities`
+
 ---
 
 ## Navigation
 
 ```typescript
 export type TabParamList = {
-  Home: undefined; Record: undefined; Recordings: undefined; Settings: undefined;
+  Home: undefined;
+  Record: undefined;
+  Recordings: undefined;
+  ActionItems: undefined;
+  AskAI: undefined;
+  Settings: undefined;
 };
+// Stack screens (not tabs): Knowledge, Templates — in root stack above tab navigator
+
 export type RecordingsStackParamList = {
   RecordingsList: undefined; RecordingDetail: { id: string };
 };
@@ -244,7 +295,7 @@ Message format:
 
 ---
 
-## Screen Status (2026-04-20)
+## Screen Status (2026-04-24)
 
 | Screen / Feature | Status |
 |---|---|
@@ -271,6 +322,10 @@ Message format:
 | Word-level audio sync | ✅ Tappable words on Transcript tab (new recordings only) |
 | Apple Watch Phase 1 | ✅ Running on simulator (confirmed 2026-04-22) — WatchConnectivity bridge live, wrist tap → iPhone recording, live MM:SS timer, haptic on start/stop |
 | Apple Watch Phase 2 | 🚧 Mobile side wired (2026-04-23) — Expo push token registration + `settings.updatePushToken` call + notification-tap navigation via `navigationRef`. Needs web `settings.updatePushToken` mutation + worker-side Expo push send to go live |
+| ActionItemsScreen  | ✅ Built — extracted from `recordings.list`, filter All/Open/Completed, priority badges |
+| KnowledgeScreen    | ✅ Built — `knowledge.getTopEntities`, search, grouped PERSON/TOPIC/PROJECT, expand card, back button |
+| AskAIScreen        | ✅ Built — chat UI, `trpcPost ai.ask`, suggested questions, source citations |
+| TemplatesScreen    | ✅ Built — `templates.list`, expand cards, +New shows web redirect alert, back button |
 | TestFlight | ❌ Needs Apple Developer account |
 | Android | ❌ Untested |
 

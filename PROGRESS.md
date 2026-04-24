@@ -1,11 +1,32 @@
 # Kolasys AI Mobile — Progress
 
-**Last updated: April 21, 2026**
+**Last updated: April 24, 2026**
 
 ## Project Overview
 
 React Native / Expo SDK 54 mobile client for [app.kolasys.ai](https://app.kolasys.ai).
 Repo: [github.com/kolasystems/kolasys-ai-mobile](https://github.com/kolasystems/kolasys-ai-mobile)
+
+---
+
+## ✅ Complete — Web Parity Screens (2026-04-24)
+
+- [x] **ActionItemsScreen** — tasks extracted from recordings, filter All/Open/Completed, priority badges LOW/MEDIUM/HIGH/URGENT
+- [x] **KnowledgeScreen** — personal knowledge graph, grouped People/Topics/Projects, search, tap to expand, back button
+- [x] **AskAIScreen** — full chat UI, Claude-powered, suggested questions, source citations per answer
+- [x] **TemplatesScreen** — org + global templates, expand to view prompt, +New redirects to web with URL
+- [x] New bottom tabs: **ActionItems** (Tasks) and **AskAI** added to tab bar
+- [x] **Knowledge** and **Templates** accessible as stack screens from HomeScreen quick-action cards
+- [x] HomeScreen gradient updated: dark `['#1a0a0a','#2d1515','#1a1a2e']`, light `['#fff8f8','#ffe8e8','#f0f0ff']`
+
+---
+
+## ✅ Complete — iOS Build Stability (2026-04-24)
+
+- [x] Fixed CocoaPods `objectVersion=70` error (Xcode 16 vs CocoaPods 1.16.x incompatibility)
+- [x] Fixed `WatchBridge.swift` and `WatchBridge.m` file reference paths in `project.pbxproj`
+- [x] Both fixes documented in `CLAUDE.md` as permanent rules
+- [x] Watch app confirmed working — requires separate Xcode build of Watch target after `expo run:ios`
 
 ---
 
