@@ -5,7 +5,7 @@
 **Repo:** https://github.com/kolasystems/kolasys-ai-mobile  
 **Web backend:** https://app.kolasys.ai (tRPC API at `https://app.kolasys.ai/api/trpc`)  
 **Web repo:** `~/Desktop/kolasys-ai` · `github.com/kolasystems/kolasys-ai`  
-**Last updated:** 2026-04-24
+**Last updated:** 2026-04-20
 
 ---
 
@@ -66,35 +66,6 @@ useEffect(() => { getTokenRef.current = getToken; }); // no deps — runs every 
 ### Clerk keys — NEVER mix test/live
 - Local `.env`: `pk_test_` + `sk_test_` (must match)
 - Railway + Vercel: `pk_live_` + `sk_live_`
-
-### iOS Build — CocoaPods objectVersion fix
-After any Xcode 16 upgrade or fresh clone, run before `pod install`:
-```bash
-sed -i '' 's/objectVersion = 70/objectVersion = 60/' ios/KolasysAI.xcodeproj/project.pbxproj
-```
-Xcode 16 writes `objectVersion = 70` which CocoaPods 1.16.x cannot parse (`ArgumentError - Unable to find compatibility version string for object version '70'`). Safe to apply — Xcode ignores this field at build time.
-
-### WatchBridge file reference paths
-If you see `Build input file cannot be found: '.../ios/WatchBridge.swift'`, the pbxproj has the Watch bridge files registered at the wrong relative path. Fix:
-```bash
-sed -i '' 's/path = WatchBridge\.swift;/path = KolasysAI\/WatchBridge.swift;/' ios/KolasysAI.xcodeproj/project.pbxproj
-sed -i '' 's/path = WatchBridge\.m;/path = KolasysAI\/WatchBridge.m;/' ios/KolasysAI.xcodeproj/project.pbxproj
-```
-The Swift + ObjC files live in `ios/KolasysAI/` but some tooling writes the refs as bare filenames.
-
-### Watch app deployment
-`npx expo run:ios` only deploys the **iPhone** target. After every `expo run:ios`, reinstall the Watch app:
-1. `open ios/KolasysAI.xcworkspace`
-2. Switch scheme to `KolasysWatch Watch App`
-3. Select paired Apple Watch as destination
-4. Cmd+R
-
-### Metro
-Always keep a separate terminal running:
-```bash
-npx expo start
-```
-After a build, shake phone → **Reload** to pick up JS changes. Use `--tunnel` on a physical device if local-network DNS is flaky.
 
 ---
 
@@ -200,36 +171,14 @@ Server returns `notes[]` (array, take:1). Always normalize:
 const data = { ...rawData, note: rawData.note ?? rawData.notes?.[0] ?? null };
 ```
 
-### Confirmed working procedures (2026-04-24)
-```
-recordings.list          → includes nested actionItems[] per recording
-recordings.get           → single recording detail
-knowledge.getTopEntities → input: { limit: 50 }, types: PERSON | TOPIC | PROJECT
-templates.list           → no input, returns org + global templates
-ai.ask                   → POST, input: { question, context? }
-settings.updatePushToken → POST, input: { token }
-```
-
-WRONG procedure names (all return 404):
-- `actionItem.list`  → use `recordings.list` and extract `.actionItems[]`
-- `template.list`    → correct is `templates.list` (plural namespace)
-- `knowledge.list`   → correct is `knowledge.getTopEntities`
-
 ---
 
 ## Navigation
 
 ```typescript
 export type TabParamList = {
-  Home: undefined;
-  Record: undefined;
-  Recordings: undefined;
-  ActionItems: undefined;
-  AskAI: undefined;
-  Settings: undefined;
+  Home: undefined; Record: undefined; Recordings: undefined; Settings: undefined;
 };
-// Stack screens (not tabs): Knowledge, Templates — in root stack above tab navigator
-
 export type RecordingsStackParamList = {
   RecordingsList: undefined; RecordingDetail: { id: string };
 };
@@ -265,37 +214,7 @@ Four tabs: **Notes | Transcript | Actions | Ask AI**
 
 ---
 
-## Apple Watch Phase 1 (✅ running on simulator, 2026-04-22)
-
-SwiftUI watch app + WatchConnectivity native bridge + RN JS module — all wired, Xcode Watch target added, bundle ID and companion ID set, running on the paired Watch simulator. Tap mic on the wrist → iPhone starts recording; live MM:SS timer and haptic feedback on start/stop.
-
-Files scaffolded:
-- `ios/KolasysWatch Watch App/KolasysWatchApp.swift` — SwiftUI entry point
-- `ios/KolasysWatch Watch App/ContentView.swift` — tap-to-record UI with red pulse animation
-- `ios/KolasysWatch Watch App/WatchConnector.swift` — `WCSessionDelegate`, sends `{command: 'start'|'stop'}`
-- `ios/KolasysWatch/WatchBridge.swift` — iOS-side `RCTEventEmitter`, emits `WatchCommand` events to JS
-- `ios/KolasysWatch/WatchBridge.m` — Objective-C `RCT_EXTERN_MODULE` header
-- `src/lib/watchBridge.ts` — `activateWatchSession`, `sendStateToWatch`, `addWatchCommandListener`
-- `RecordScreen.tsx` listens for commands via refs; mirrors `state + elapsed` every second
-- `App.tsx` calls `activateWatchSession()` on mount
-
-Manual Xcode setup (one-time):
-1. Open `ios/KolasysAI.xcworkspace` in Xcode.
-2. **File → New → Target → watchOS → Watch App.**
-3. Product Name: `KolasysWatch` · Bundle ID: `com.kolasystems.kolasysai.watchkitapp` · Language: Swift · Interface: SwiftUI.
-4. Delete Xcode's auto-generated Swift files and drag in the three files from `ios/KolasysWatch Watch App/` instead.
-5. Add `WatchConnectivity.framework` to **both** the Watch target and the main `KolasysAI` target.
-6. Drag `ios/KolasysWatch/WatchBridge.swift` + `WatchBridge.m` into the main `KolasysAI` target; accept the bridging-header prompt.
-7. Set the Apple Team ID on both targets.
-8. Run on a paired iPhone + Watch simulator (must be paired in Devices in Xcode).
-
-Message format:
-- Watch → iOS: `{ command: 'start' | 'stop' }`
-- iOS → Watch: `{ state: 'idle' | 'recording' | …, elapsed: number }`
-
----
-
-## Screen Status (2026-04-24)
+## Screen Status (2026-04-20)
 
 | Screen / Feature | Status |
 |---|---|
@@ -316,16 +235,9 @@ Message format:
 | Dark mode (full app) | ✅ Complete as of 2026-04-20 |
 | Markdown rendering | ✅ react-native-markdown-display |
 | Push notifications (notes ready) | ✅ Partial — expo-notifications wired, not TestFlight |
-| ContactsScreen | ✅ Built — search, initials avatar, meta pills |
-| AnalyticsScreen | ✅ Built — stat cards, bar chart, speaker talk time |
-| SettingsStack navigation | ✅ Contacts + Analytics accessible from Settings > DATA section |
-| Word-level audio sync | ✅ Tappable words on Transcript tab (new recordings only) |
-| Apple Watch Phase 1 | ✅ Running on simulator (confirmed 2026-04-22) — WatchConnectivity bridge live, wrist tap → iPhone recording, live MM:SS timer, haptic on start/stop |
-| Apple Watch Phase 2 | 🚧 Mobile side wired (2026-04-23) — Expo push token registration + `settings.updatePushToken` call + notification-tap navigation via `navigationRef`. Needs web `settings.updatePushToken` mutation + worker-side Expo push send to go live |
-| ActionItemsScreen  | ✅ Built — extracted from `recordings.list`, filter All/Open/Completed, priority badges |
-| KnowledgeScreen    | ✅ Built — `knowledge.getTopEntities`, search, grouped PERSON/TOPIC/PROJECT, expand card, back button |
-| AskAIScreen        | ✅ Built — chat UI, `trpcPost ai.ask`, suggested questions, source citations |
-| TemplatesScreen    | ✅ Built — `templates.list`, expand cards, +New shows web redirect alert, back button |
+| Contacts screen | ❌ Not started |
+| Analytics screen | ❌ Not started |
+| Word-level audio sync | ❌ Not started |
 | TestFlight | ❌ Needs Apple Developer account |
 | Android | ❌ Untested |
 
