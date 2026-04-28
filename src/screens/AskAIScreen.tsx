@@ -20,9 +20,12 @@ import { trpcPost } from '../lib/api';
 import { useTheme } from '../lib/theme';
 
 interface Source {
-  meetingId: string;
-  meetingTitle: string;
-  excerpt: string;
+  index: number;
+  recordingId: string;
+  recordingTitle: string;
+  chunkText: string;
+  startTime: number | null;
+  similarity: number;
 }
 
 interface ChatMessage {
@@ -94,16 +97,17 @@ export default function AskAIScreen() {
     setSending(true);
     try {
       const token = await getTokenRef.current();
-      const res = await trpcPost<{ answer: string; sources?: Source[] }>(
-        'ai.ask',
+      const res = await trpcPost<{ answer?: string; sources?: Source[] } | unknown>(
+        'search.askAI',
         { question: q },
         token,
       );
+      const typed = (res ?? {}) as { answer?: string; sources?: Source[] };
       const assistant: ChatMessage = {
         id: `a-${Date.now()}`,
         role: 'assistant',
-        text: res?.answer ?? 'I couldn\u2019t generate an answer right now.',
-        sources: res?.sources,
+        text: typed.answer ?? 'I couldn\u2019t generate an answer right now.',
+        sources: typed.sources,
       };
       setMessages((prev) => [...prev, assistant]);
     } catch (err) {
@@ -117,10 +121,10 @@ export default function AskAIScreen() {
     }
   }, [sending]);
 
-  const openMeeting = (meetingId: string) => {
+  const openRecording = (recordingId: string) => {
     navigation.navigate('Recordings', {
       screen: 'RecordingDetail',
-      params: { id: meetingId },
+      params: { id: recordingId },
     });
   };
 
@@ -185,16 +189,18 @@ export default function AskAIScreen() {
                 </Text>
                 {!isUser && item.sources && item.sources.length > 0 && (
                   <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
-                    {item.sources.map((s, i) => (
+                    {item.sources.map((s) => (
                       <TouchableOpacity
-                        key={`${s.meetingId}-${i}`}
+                        key={`${s.recordingId}-${s.index}`}
                         style={[styles.sourceChip, { backgroundColor: colors.accentSoft }]}
-                        onPress={() => openMeeting(s.meetingId)}
+                        onPress={() => openRecording(s.recordingId)}
                         activeOpacity={0.8}
                       >
-                        <Ionicons name="mic-outline" size={11} color={colors.accent} />
+                        <Text style={{ fontSize: 10, fontWeight: '700', color: colors.accent }}>
+                          [{s.index}]
+                        </Text>
                         <Text style={{ fontSize: 11, fontWeight: '600', color: colors.accent }} numberOfLines={1}>
-                          {s.meetingTitle}
+                          {s.recordingTitle}
                         </Text>
                       </TouchableOpacity>
                     ))}
