@@ -16,6 +16,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.kolasystems.kolasysai",
+      "appleTeamId": "G4FYFLNJMC",
       "infoPlist": {
         "NSMicrophoneUsageDescription": "Kolasys AI needs microphone access to record meetings.",
         "NSCalendarsUsageDescription": "Kolasys AI uses your calendar to show upcoming meetings.",
