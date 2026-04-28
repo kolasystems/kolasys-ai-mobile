@@ -12,8 +12,7 @@
     "production": {
       "ios": {
         "buildConfiguration": "Release"
-      },
-      "prebuildCommand": "bash scripts/eas-build-pre-install.sh"
+      }
     }
   },
   "submit": {
