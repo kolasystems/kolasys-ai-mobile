@@ -1,7 +1,8 @@
 {
   "expo": {
     "name": "Kolasys AI",
-    "slug": "kolasys-ai",
+    "slug": "kolasys-ai-mobile",
+    "owner": "kolasysai",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -39,7 +40,11 @@
         "WRITE_CALENDAR",
         "RECEIVE_BOOT_COMPLETED",
         "VIBRATE",
-        "POST_NOTIFICATIONS"
+        "POST_NOTIFICATIONS",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.READ_CALENDAR",
+        "android.permission.WRITE_CALENDAR"
       ]
     },
     "web": {
@@ -71,7 +76,10 @@
     ],
     "scheme": "kolasys-ai",
     "extra": {
-      "clerkPublishableKey": "pk_live_Y2xlcmsuYXBwLmtvbGFzeXMuYWkk"
+      "clerkPublishableKey": "pk_live_Y2xlcmsuYXBwLmtvbGFzeXMuYWkk",
+      "eas": {
+        "projectId": "b6cab2a6-d1df-4288-b887-4a9a4860766a"
+      }
     }
   }
 }
