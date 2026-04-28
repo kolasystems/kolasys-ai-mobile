@@ -19,9 +19,7 @@
     "production": {
       "ios": {
         "appleTeamId": "G4FYFLNJMC",
-        "ascAppId": "6764396351",
-        "appleApiKeyId": "32K533TTG3",
-        "appleApiIssuerId": "07c0f1b4-b2d4-452e-9397-6fe2bbe40418"
+        "ascAppId": "6764396351"
       }
     }
   }
