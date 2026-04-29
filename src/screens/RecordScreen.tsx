@@ -29,7 +29,11 @@ import {
 } from '../lib/watchBridge';
 
 // True on a physical device, false on simulator/emulator
-const IS_REAL_DEVICE = Constants.isDevice;
+// Block only the web — real iPhone production builds were sometimes
+// reporting Constants.isDevice === false, which incorrectly triggered the
+// "Real Device Required" alert. Platform.OS === 'web' is the only case
+// where mic access genuinely doesn't apply.
+const IS_REAL_DEVICE = Platform.OS !== 'web';
 
 type RecordState = 'idle' | 'recording' | 'paused' | 'stopped' | 'uploading' | 'done';
 
