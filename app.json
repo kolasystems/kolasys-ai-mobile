@@ -73,7 +73,8 @@
         {
           "calendarPermission": "Kolasys AI uses your calendar to show upcoming meetings."
         }
-      ]
+      ],
+      "expo-document-picker"
     ],
     "scheme": "kolasys-ai",
     "extra": {
