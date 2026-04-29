@@ -237,3 +237,33 @@ Root router: `src/server/root.ts` (NOT index.ts)
 | BlurView transparent | Fixed — removed from all screens |
 | npm peer conflict | Workaround: always `--legacy-peer-deps` |
 | CocoaPods objectVersion | Re-apply sed fix after any Xcode upgrade |
+
+---
+
+## April 29, 2026 — TestFlight Builds
+
+**Build 5 is current stable.** Earlier session work that landed in this build:
+- `a9076eb` — `RecordScreen` `isDevice` fix: now uses `Platform.OS !== 'web'` instead of `Constants.isDevice`. Production iPhone builds were sometimes seeing `Constants.isDevice === false` and incorrectly hitting the "Real Device Required" alert.
+- `9bd3ba2` — file-upload feature attempted (`expo-document-picker` + `+` button on `RecordingsScreen`).
+- `5d1052b` — **reverted** the file-upload feature. The native binary in TestFlight was built before `expo-document-picker` pods were installed, so the JS bridge couldn't find the native module at runtime. Need `cd ios && pod install` (or a fresh native rebuild) before re-introducing the picker.
+
+### Rule: pod install before archiving
+
+**ALWAYS run `pod install` after adding any native Expo package before archiving.** Never add a native package and archive in the same step without `pod install` — TestFlight builds will ship a JS bundle that calls into a native module that isn't actually linked, producing silent runtime failures (`undefined is not an object`, calls that no-op, etc.).
+
+```bash
+cd ios
+pod install
+cd ..
+# then Xcode → Product → Archive
+```
+
+### TestFlight build process (recap)
+
+1. Plug iPhone into Mac
+2. Xcode destination → **Any iOS Device (arm64)**
+3. **Product → Archive** (~10 min)
+4. Organizer → **Distribute App → App Store Connect → Upload**
+5. Build appears in TestFlight in ~15 min
+
+(Same flow as in the "TestFlight Submission" section above — restated here so the rule + process live together.)
