@@ -68,9 +68,29 @@
 		F11748442D0722820044C1D9 /* KolasysAI-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "KolasysAI-Bridging-Header.h"; path = "KolasysAI/KolasysAI-Bridging-Header.h"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		72A7FDE82FA395AD00C3D480 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				SharedFilesBridge.m,
+				SharedFilesBridge.swift,
+			);
+			target = 13B07F861A680F5B00A75B9A /* KolasysAI */;
+		};
+		72A7FDE92FA395AD00C3D480 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+				SharedFilesBridge.m,
+				SharedFilesBridge.swift,
+			);
+			target = 72A7FDCE2FA3082000C3D480 /* KolasysShare */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		72A7FD162F99103600C3D480 /* KolasysWatch Watch App */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = "KolasysWatch Watch App"; sourceTree = "<group>"; };
-		72A7FDD02FA3082000C3D480 /* KolasysShare */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = KolasysShare; sourceTree = "<group>"; };
+		72A7FDD02FA3082000C3D480 /* KolasysShare */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (72A7FDE82FA395AD00C3D480 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, 72A7FDE92FA395AD00C3D480 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = KolasysShare; sourceTree = "<group>"; };
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -259,8 +279,6 @@
 				72A7FDD02FA3082000C3D480 /* KolasysShare */,
 			);
 			name = KolasysShare;
-			packageProductDependencies = (
-			);
 			productName = KolasysShare;
 			productReference = 72A7FDCF2FA3082000C3D480 /* KolasysShare.appex */;
 			productType = "com.apple.product-type.app-extension";
@@ -673,6 +691,7 @@
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_ENTITLEMENTS = KolasysShare/KolasysShare.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = dwarf;
@@ -717,6 +736,7 @@
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_ENTITLEMENTS = KolasysShare/KolasysShare.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 1;

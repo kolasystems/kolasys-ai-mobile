@@ -10,6 +10,7 @@ import UIKit
 import SwiftUI
 import Social
 import UniformTypeIdentifiers
+import Combine
 
 private let APP_GROUP = "group.com.kolasystems.kolasysai"
 private let PENDING_DIR = "pending-uploads"
