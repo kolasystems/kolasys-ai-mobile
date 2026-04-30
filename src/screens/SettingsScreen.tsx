@@ -138,6 +138,18 @@ export default function SettingsScreen({ navigation }: { navigation: NativeStack
         />
       </View>
 
+      {/* Subscription */}
+      <Text style={[styles.sectionHeader, { color: colors.textMuted }]}>SUBSCRIPTION</Text>
+      <View style={[styles.section, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+        <Row
+          icon="card-outline"
+          label="Billing"
+          value="Plan & subscription"
+          onPress={() => (navigation as any).navigate('Billing')}
+          colors={colors}
+        />
+      </View>
+
       {/* Appearance */}
       <Text style={[styles.sectionHeader, { color: colors.textMuted }]}>APPEARANCE</Text>
       <View

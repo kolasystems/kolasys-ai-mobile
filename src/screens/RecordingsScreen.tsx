@@ -16,6 +16,7 @@ import { trpc } from '../lib/trpc';
 import type { Recording } from '../lib/trpc';
 import { RecordingCard } from '../components/RecordingCard';
 import { useTheme } from '../lib/theme';
+import { useSharedFiles } from '../hooks/useSharedFiles';
 import type { RecordingsStackParamList } from '../navigation/AppNavigator';
 
 type Nav = NativeStackNavigationProp<RecordingsStackParamList, 'RecordingsList'>;
@@ -24,8 +25,23 @@ export default function RecordingsScreen() {
   const navigation = useNavigation<Nav>();
   const { colors } = useTheme();
   const [search, setSearch] = useState('');
+  const [importStatus, setImportStatus] = useState<{ active: boolean; message: string } | null>(null);
 
   const { data, isLoading, refetch, isRefetching } = trpc.recordings.list.useQuery({ limit: 50 });
+
+  useSharedFiles({
+    onUploadStart: (file) =>
+      setImportStatus({ active: true, message: `Uploading ${file.name}\u2026` }),
+    onUploadSuccess: () => {
+      setImportStatus({ active: false, message: 'Shared recording uploaded' });
+      void refetch();
+    },
+    onUploadError: (_file, error) =>
+      setImportStatus({ active: false, message: `Upload failed: ${error}` }),
+    onAllUploadsComplete: () => {
+      setTimeout(() => setImportStatus(null), 3000);
+    },
+  });
 
   const allRecordings: Recording[] =
     (data as any)?.recordings ?? (data as any)?.items ?? (Array.isArray(data) ? data : []);
@@ -64,6 +80,24 @@ export default function RecordingsScreen() {
           </TouchableOpacity>
         )}
       </View>
+
+      {importStatus && (
+        <View
+          style={[
+            styles.importBanner,
+            { borderColor: colors.border, backgroundColor: colors.surfaceMuted },
+          ]}
+        >
+          {importStatus.active ? (
+            <ActivityIndicator size="small" color={colors.accent} />
+          ) : (
+            <Ionicons name="checkmark-circle" size={16} color={colors.accent} />
+          )}
+          <Text style={[styles.importText, { color: colors.textSecondary }]} numberOfLines={1}>
+            {importStatus.message}
+          </Text>
+        </View>
+      )}
 
       {isLoading ? (
         <View style={styles.centered}>
@@ -115,6 +149,18 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   searchInput: { flex: 1, fontSize: 15 },
+  importBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginHorizontal: 12,
+    marginBottom: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  importText: { flex: 1, fontSize: 13 },
   list: { paddingHorizontal: 12, paddingBottom: 24 },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   empty: { alignItems: 'center', paddingTop: 60, gap: 8 },
