@@ -16,7 +16,6 @@ private let APP_GROUP = "group.com.kolasystems.kolasysai"
 private let PENDING_DIR = "pending-uploads"
 private let BRAND_RED = Color(red: 0.79, green: 0.15, blue: 0.15) // #CA2625
 
-@objc(ShareViewController)
 class ShareViewController: UIViewController {
 
     private var hostingController: UIHostingController<ShareRootView>?
