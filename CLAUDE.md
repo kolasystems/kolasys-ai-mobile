@@ -172,7 +172,7 @@ knowledge.list  → WRONG. Correct: knowledge.getTopEntities
 | Apple Watch Phase 1 | ✅ — wrist tap → record |
 | Apple Watch Phase 2 | ✅ — push notification on notes ready |
 | Apple Watch Phase 3 | ❌ — Force Touch bookmark not built |
-| TestFlight | ✅ — v1.0.0 Build 1 installed on iPhone 16 Pro Max |
+| TestFlight | ✅ — v1.0.0 Build 14 installed on iPhone 16 Pro Max — share extension live |
 | Android | ❌ — untested |
 
 ---
@@ -247,6 +247,16 @@ Root router: `src/server/root.ts` (NOT index.ts)
 - `9bd3ba2` — file-upload feature attempted (`expo-document-picker` + `+` button on `RecordingsScreen`).
 - `5d1052b` — **reverted** the file-upload feature. The native binary in TestFlight was built before `expo-document-picker` pods were installed, so the JS bridge couldn't find the native module at runtime. Need `cd ios && pod install` (or a fresh native rebuild) before re-introducing the picker.
 
+**Build 14 is current stable** (April 30). Brought the iOS Share Extension live for Voice Memos. Took several iterations:
+- `9f64bdb` — initial scaffold (SwiftUI / `UIHostingController`).
+- `7f9241b` — restored `Info.plist` + `ShareViewController.swift` after Xcode wiped them while adding the target.
+- `a4b52aa` — `import Combine` for `ObservableObject` (still SwiftUI at this point).
+- `9c8147b` — `NSExtensionActivationRule` rewritten as a `SUBQUERY` predicate string. Fixed Voice Memos not showing the extension at all.
+- `615d2d1` — removed `@objc(ShareViewController)`. The rename mismatched `NSExtensionPrincipalClass = $(PRODUCT_MODULE_NAME).ShareViewController`.
+- `d0a24d7` — **rewrote in pure UIKit**. SwiftUI/`UIHostingController` was hitting the Xcode 16 `SwiftUICore` linker restriction and silently killing the extension. This is the load-bearing fix.
+- `fe9b9c5` — removed `import MobileCoreServices`, switched to plain UTI string literals.
+- `069d66c` — copy the shared file *inside* the `loadFileRepresentation` callback before dispatching to main. The provided URL is sandbox-scoped and disappears the moment the block returns.
+
 ### Rule: pod install before archiving
 
 **ALWAYS run `pod install` after adding any native Expo package before archiving.** Never add a native package and archive in the same step without `pod install` — TestFlight builds will ship a JS bundle that calls into a native module that isn't actually linked, producing silent runtime failures (`undefined is not an object`, calls that no-op, etc.).
@@ -272,11 +282,20 @@ cd ..
 
 ## iOS Share Extension (`KolasysShare`)
 
-Lets users send audio from Voice Memos / Files / etc. straight into Kolasys AI via the iOS share sheet. The extension drops the audio into the App Group container; the main app picks it up on foreground and runs the standard 4-step upload pipeline.
+✅ **Working in Build 14.** Lets users send audio from Voice Memos / Files / etc. straight into Kolasys AI via the iOS share sheet. The extension drops the audio into the App Group container; the main app picks it up on foreground and runs the standard 4-step upload pipeline.
+
+### Hard requirements (learned the hard way)
+
+- **Pure UIKit only.** No `SwiftUI`, no `UIHostingController`, no `Combine`. Xcode 16 enforces a `SwiftUICore` linker restriction (`cannot link directly with 'SwiftUICore' because product being built is not an allowed client of it`) that silently kills the extension at runtime. The current `ShareViewController.swift` is intentionally pure UIKit — do not "modernize" it back to SwiftUI.
+- **Minimum deployment target: iOS 15.6.** Both the main app target and the `KolasysShare` target must be set to ≥ 15.6. Lower targets break `loadFileRepresentation`'s async semantics and `UTType` resolution on real devices.
+- **Don't use `@objc(ShareViewController)`** — `NSExtensionPrincipalClass` is `$(PRODUCT_MODULE_NAME).ShareViewController`, and the `@objc` rename forces a bare ObjC name that iOS can't resolve.
+- **Don't import `MobileCoreServices`** — deprecated, causes silent crashes alongside `UniformTypeIdentifiers`.
+- **`NSExtensionActivationRule` must be a predicate string**, not a dict. The dict form (`NSExtensionActivationSupportsFileWithMaxCount` etc.) is fallback-only — Voice Memos won't show the extension. Use the `SUBQUERY` predicate matching `public.audio` / `com.apple.m4a-audio` / `public.mpeg-4-audio` / `public.movie`.
+- **Copy the shared file inside the `loadFileRepresentation` callback block** — the URL is sandbox-scoped and gets reclaimed as soon as the block returns. Dispatching to main first = file gone.
 
 ### Files (already scaffolded in the repo)
 
-- `ios/KolasysShare/ShareViewController.swift` — SwiftUI Share Extension UI + file copy
+- `ios/KolasysShare/ShareViewController.swift` — **pure UIKit** Share Extension UI + file copy
 - `ios/KolasysShare/Info.plist` — `NSExtension` config, principal class `ShareViewController`
 - `ios/KolasysShare/KolasysShare.entitlements` — App Group `group.com.kolasystems.kolasysai`
 - `ios/KolasysAI/SharedFilesBridge.swift` + `.m` — RN bridge exposed as `NativeModules.SharedFilesBridge`
@@ -301,6 +320,7 @@ Lets users send audio from Voice Memos / Files / etc. straight into Kolasys AI v
    - Drag in `ios/KolasysShare/ShareViewController.swift` and `ios/KolasysShare/Info.plist`
    - Set the target's **Info.plist File** build setting to `KolasysShare/Info.plist`
    - Remove `NSExtensionMainStoryboard` references — we use `NSExtensionPrincipalClass`
+   - Set the target's **iOS Deployment Target** to **15.6** (Build Settings → Deployment)
 4. **App Group entitlement:**
    - Select the **KolasysAI** target → Signing & Capabilities → **+ Capability** → App Groups → check `group.com.kolasystems.kolasysai`
    - Select the **KolasysShare** target → same capability + same group
