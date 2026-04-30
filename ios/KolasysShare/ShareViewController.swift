@@ -107,29 +107,40 @@ class ShareViewController: UIViewController {
     }
 
     private func processSharedItems() {
-        guard let extensionItem = extensionContext?.inputItems.first as? NSExtensionItem,
-              let attachments = extensionItem.attachments,
-              let provider = attachments.first else {
-            showError("Nothing to share.")
-            return
+        guard let item = extensionContext?.inputItems.first as? NSExtensionItem,
+              let provider = item.attachments?.first else {
+            showError("Nothing to share."); return
         }
-
         let types = ["public.audio", "com.apple.m4a-audio", "public.mpeg-4-audio", "public.movie", "public.data"]
         for typeId in types {
             if provider.hasItemConformingToTypeIdentifier(typeId) {
                 provider.loadFileRepresentation(forTypeIdentifier: typeId) { [weak self] url, error in
+                    // ⚠️ This URL is only valid INSIDE this block — copy it NOW before returning
+                    if let error = error {
+                        DispatchQueue.main.async { self?.showError(error.localizedDescription) }
+                        return
+                    }
+                    guard let url = url else {
+                        DispatchQueue.main.async { self?.showError("Could not load file.") }
+                        return
+                    }
+                    // Copy to temp location BEFORE dispatching to main — file will be gone after block exits
+                    let tmp = FileManager.default.temporaryDirectory
+                        .appendingPathComponent("kolasys-share-\(Int(Date().timeIntervalSince1970)).\(url.pathExtension.isEmpty ? "m4a" : url.pathExtension)")
+                    do {
+                        if FileManager.default.fileExists(atPath: tmp.path) {
+                            try FileManager.default.removeItem(at: tmp)
+                        }
+                        try FileManager.default.copyItem(at: url, to: tmp)
+                    } catch {
+                        DispatchQueue.main.async { self?.showError("Could not copy file: \(error.localizedDescription)") }
+                        return
+                    }
+                    // Now safe to hand off to main queue — tmp is our copy
                     DispatchQueue.main.async {
-                        if let error = error {
-                            self?.showError(error.localizedDescription)
-                            return
-                        }
-                        guard let url = url else {
-                            self?.showError("Could not load file.")
-                            return
-                        }
                         do {
-                            let saved = try self?.copyToAppGroup(from: url)
-                            self?.showSuccess(saved?.lastPathComponent ?? "file")
+                            try self?.copyToAppGroup(from: tmp)
+                            self?.showSuccess()
                         } catch {
                             self?.showError(error.localizedDescription)
                         }
@@ -160,7 +171,7 @@ class ShareViewController: UIViewController {
         return dest
     }
 
-    private func showSuccess(_ filename: String) {
+    private func showSuccess() {
         progressView.stopAnimating()
         progressView.isHidden = true
         statusLabel.text = "Saved! Kolasys AI will upload it on next launch."
