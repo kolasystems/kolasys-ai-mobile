@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 60;
+	objectVersion = 70;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -12,14 +12,39 @@
 		2B9336164B9BAED6B284242A /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 28D317B21DBA6545490199C5 /* PrivacyInfo.xcprivacy */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
 		4680DEA6D6DAC002C63034B2 /* libPods-KolasysAI.a in Frameworks */ = {isa = PBXBuildFile; fileRef = C1BC4315DDEC0A2550AED512 /* libPods-KolasysAI.a */; };
-		72A7FD242F991AB100C3D480 /* WatchBridge.m in Sources */ = {isa = PBXBuildFile; fileRef = 72A7FD222F991AB100C3D480 /* WatchBridge.m */; };
-		72A7FD252F991AB100C3D480 /* WatchBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72A7FD232F991AB100C3D480 /* WatchBridge.swift */; };
+		72A7FD242F991AB100C3D480 /* KolasysAI/WatchBridge.m in Sources */ = {isa = PBXBuildFile; fileRef = 72A7FD222F991AB100C3D480 /* KolasysAI/WatchBridge.m */; };
+		72A7FD252F991AB100C3D480 /* KolasysAI/WatchBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72A7FD232F991AB100C3D480 /* KolasysAI/WatchBridge.swift */; };
 		72A7FD282F991BD700C3D480 /* WatchConnectivity.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72A7FD262F991B9D00C3D480 /* WatchConnectivity.framework */; };
 		72A7FD2A2F991BF200C3D480 /* WatchConnectivity.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72A7FD292F991BF200C3D480 /* WatchConnectivity.framework */; };
+		72A7FDD92FA3082000C3D480 /* KolasysShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 72A7FDCF2FA3082000C3D480 /* KolasysShare.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		A21DC97F44DF9A5F7F22D8E1 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 28D317B21DBA6545490199C5 /* PrivacyInfo.xcprivacy */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		72A7FDD72FA3082000C3D480 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 83CBB9F71A601CBA00E9B192 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 72A7FDCE2FA3082000C3D480;
+			remoteInfo = KolasysShare;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		72A7FDDA2FA3082000C3D480 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				72A7FDD92FA3082000C3D480 /* KolasysShare.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		13B07F961A680F5B00A75B9A /* KolasysAI.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = KolasysAI.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -29,10 +54,11 @@
 		28B8E821112B9B837270EC9F /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-KolasysAI/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
 		28D317B21DBA6545490199C5 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xml; name = PrivacyInfo.xcprivacy; path = KolasysAI/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		72A7FD152F99103600C3D480 /* KolasysWatch Watch App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "KolasysWatch Watch App.app"; sourceTree = BUILT_PRODUCTS_DIR; };
-		72A7FD222F991AB100C3D480 /* WatchBridge.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = KolasysAI/WatchBridge.m; sourceTree = "<group>"; };
-		72A7FD232F991AB100C3D480 /* WatchBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KolasysAI/WatchBridge.swift; sourceTree = "<group>"; };
+		72A7FD222F991AB100C3D480 /* KolasysAI/WatchBridge.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = KolasysAI/WatchBridge.m; sourceTree = "<group>"; };
+		72A7FD232F991AB100C3D480 /* KolasysAI/WatchBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KolasysAI/WatchBridge.swift; sourceTree = "<group>"; };
 		72A7FD262F991B9D00C3D480 /* WatchConnectivity.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WatchConnectivity.framework; path = System/Library/Frameworks/WatchConnectivity.framework; sourceTree = SDKROOT; };
 		72A7FD292F991BF200C3D480 /* WatchConnectivity.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WatchConnectivity.framework; path = Platforms/WatchOS.platform/Developer/SDKs/WatchOS26.4.sdk/System/Library/Frameworks/WatchConnectivity.framework; sourceTree = DEVELOPER_DIR; };
+		72A7FDCF2FA3082000C3D480 /* KolasysShare.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = KolasysShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		9F2607E00A2C2EFE6269EF2C /* Pods-KolasysAI.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-KolasysAI.debug.xcconfig"; path = "Target Support Files/Pods-KolasysAI/Pods-KolasysAI.debug.xcconfig"; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = KolasysAI/SplashScreen.storyboard; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
@@ -43,17 +69,8 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		72A7FD162F99103600C3D480 /* KolasysWatch Watch App */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-			);
-			explicitFileTypes = {
-			};
-			explicitFolders = (
-			);
-			path = "KolasysWatch Watch App";
-			sourceTree = "<group>";
-		};
+		72A7FD162F99103600C3D480 /* KolasysWatch Watch App */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = "KolasysWatch Watch App"; sourceTree = "<group>"; };
+		72A7FDD02FA3082000C3D480 /* KolasysShare */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = KolasysShare; sourceTree = "<group>"; };
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -71,6 +88,13 @@
 			buildActionMask = 2147483647;
 			files = (
 				72A7FD2A2F991BF200C3D480 /* WatchConnectivity.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		72A7FDCC2FA3082000C3D480 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -120,11 +144,12 @@
 		83CBB9F61A601CBA00E9B192 = {
 			isa = PBXGroup;
 			children = (
-				72A7FD222F991AB100C3D480 /* WatchBridge.m */,
-				72A7FD232F991AB100C3D480 /* WatchBridge.swift */,
+				72A7FD222F991AB100C3D480 /* KolasysAI/WatchBridge.m */,
+				72A7FD232F991AB100C3D480 /* KolasysAI/WatchBridge.swift */,
 				13B07FAE1A68108700A75B9A /* KolasysAI */,
 				832341AE1AAA6A7D00B99B32 /* Libraries */,
 				72A7FD162F99103600C3D480 /* KolasysWatch Watch App */,
+				72A7FDD02FA3082000C3D480 /* KolasysShare */,
 				83CBBA001A601CBA00E9B192 /* Products */,
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
 				C0257177CEC19329E2620E6E /* Pods */,
@@ -140,6 +165,7 @@
 			children = (
 				13B07F961A680F5B00A75B9A /* KolasysAI.app */,
 				72A7FD152F99103600C3D480 /* KolasysWatch Watch App.app */,
+				72A7FDCF2FA3082000C3D480 /* KolasysShare.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -185,10 +211,12 @@
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
 				4B2E425B54AD8712859A6E79 /* [CP] Embed Pods Frameworks */,
 				2CDC8255073ABCBC3FC01F00 /* [CP] Copy Pods Resources */,
+				72A7FDDA2FA3082000C3D480 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				72A7FDD82FA3082000C3D480 /* PBXTargetDependency */,
 			);
 			name = KolasysAI;
 			productName = KolasysAI;
@@ -215,6 +243,28 @@
 			productReference = 72A7FD152F99103600C3D480 /* KolasysWatch Watch App.app */;
 			productType = "com.apple.product-type.application";
 		};
+		72A7FDCE2FA3082000C3D480 /* KolasysShare */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 72A7FDDE2FA3082000C3D480 /* Build configuration list for PBXNativeTarget "KolasysShare" */;
+			buildPhases = (
+				72A7FDCB2FA3082000C3D480 /* Sources */,
+				72A7FDCC2FA3082000C3D480 /* Frameworks */,
+				72A7FDCD2FA3082000C3D480 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				72A7FDD02FA3082000C3D480 /* KolasysShare */,
+			);
+			name = KolasysShare;
+			packageProductDependencies = (
+			);
+			productName = KolasysShare;
+			productReference = 72A7FDCF2FA3082000C3D480 /* KolasysShare.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -229,6 +279,9 @@
 						LastSwiftMigration = 1250;
 					};
 					72A7FD142F99103600C3D480 = {
+						CreatedOnToolsVersion = 26.4;
+					};
+					72A7FDCE2FA3082000C3D480 = {
 						CreatedOnToolsVersion = 26.4;
 					};
 				};
@@ -248,6 +301,7 @@
 			targets = (
 				13B07F861A680F5B00A75B9A /* KolasysAI */,
 				72A7FD142F99103600C3D480 /* KolasysWatch Watch App */,
+				72A7FDCE2FA3082000C3D480 /* KolasysShare */,
 			);
 		};
 /* End PBXProject section */
@@ -269,6 +323,13 @@
 			buildActionMask = 2147483647;
 			files = (
 				A21DC97F44DF9A5F7F22D8E1 /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		72A7FDCD2FA3082000C3D480 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -404,8 +465,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */,
-				72A7FD242F991AB100C3D480 /* WatchBridge.m in Sources */,
-				72A7FD252F991AB100C3D480 /* WatchBridge.swift in Sources */,
+				72A7FD242F991AB100C3D480 /* KolasysAI/WatchBridge.m in Sources */,
+				72A7FD252F991AB100C3D480 /* KolasysAI/WatchBridge.swift in Sources */,
 				1E4F3C68274EEAFCC24DFC48 /* ExpoModulesProvider.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -417,7 +478,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		72A7FDCB2FA3082000C3D480 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		72A7FDD82FA3082000C3D480 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 72A7FDCE2FA3082000C3D480 /* KolasysShare */;
+			targetProxy = 72A7FDD72FA3082000C3D480 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		13B07F941A680F5B00A75B9A /* Debug */ = {
@@ -587,6 +663,92 @@
 			};
 			name = Release;
 		};
+		72A7FDDB2FA3082000C3D480 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = G4FYFLNJMC;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = KolasysShare/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = KolasysShare;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.kolasystems.kolasysai.KolasysShare;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		72A7FDDC2FA3082000C3D480 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = G4FYFLNJMC;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = KolasysShare/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = KolasysShare;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MARKETING_VERSION = 1.0;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.kolasystems.kolasysai.KolasysShare;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 		83CBBA201A601CBA00E9B192 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -727,6 +889,15 @@
 			buildConfigurations = (
 				72A7FD1D2F99103700C3D480 /* Debug */,
 				72A7FD1E2F99103700C3D480 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		72A7FDDE2FA3082000C3D480 /* Build configuration list for PBXNativeTarget "KolasysShare" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				72A7FDDB2FA3082000C3D480 /* Debug */,
+				72A7FDDC2FA3082000C3D480 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

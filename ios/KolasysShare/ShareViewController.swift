@@ -13,6 +13,7 @@ import UniformTypeIdentifiers
 
 private let APP_GROUP = "group.com.kolasystems.kolasysai"
 private let PENDING_DIR = "pending-uploads"
+private let BRAND_RED = Color(red: 0.79, green: 0.15, blue: 0.15) // #CA2625
 
 @objc(ShareViewController)
 class ShareViewController: UIViewController {
@@ -95,12 +96,12 @@ class ShareViewController: UIViewController {
 
     private func copyToAppGroup(from src: URL) throws -> URL {
         guard let container = FileManager.default.containerURL(
-            forSecurityApplicationGroupIdentifier: APP_GROUP,
+            forSecurityApplicationGroupIdentifier: APP_GROUP
         ) else {
             throw NSError(
                 domain: "KolasysShare",
                 code: -2,
-                userInfo: [NSLocalizedDescriptionKey: "App Group not configured. Add the entitlement to both targets."],
+                userInfo: [NSLocalizedDescriptionKey: "App Group not configured. Add the entitlement to both targets."]
             )
         }
         let pending = container.appendingPathComponent(PENDING_DIR, isDirectory: true)
@@ -145,7 +146,7 @@ private struct ShareRootView: View {
             Spacer()
             ZStack {
                 Circle()
-                    .fill(Color(red: 0.79, green: 0.15, blue: 0.15))
+                    .fill(BRAND_RED)
                     .frame(width: 64, height: 64)
                 Image(systemName: "mic.fill")
                     .font(.system(size: 28, weight: .semibold))
@@ -159,7 +160,7 @@ private struct ShareRootView: View {
             case .uploading:
                 VStack(spacing: 8) {
                     ProgressView()
-                    Text("Saving for upload\u{2026}")
+                    Text("Uploading to Kolasys AI\u{2026}")
                         .font(.system(size: 13))
                         .foregroundColor(.secondary)
                 }
@@ -185,7 +186,7 @@ private struct ShareRootView: View {
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
-                    .background(Color(red: 0.79, green: 0.15, blue: 0.15))
+                    .background(BRAND_RED)
                     .cornerRadius(12)
             }
             .padding(.horizontal, 24)
