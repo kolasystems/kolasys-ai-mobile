@@ -25,12 +25,18 @@
 		<key>NSExtensionAttributes</key>
 		<dict>
 			<key>NSExtensionActivationRule</key>
-			<dict>
-				<key>NSExtensionActivationSupportsAttachmentsWithMaxCount</key>
-				<integer>1</integer>
-				<key>NSExtensionActivationSupportsFileWithMaxCount</key>
-				<integer>1</integer>
-			</dict>
+			<string>SUBQUERY (
+    extensionItems,
+    $extensionItem,
+    SUBQUERY (
+        $extensionItem.attachments,
+        $attachment,
+        ANY $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO "public.audio"
+            OR ANY $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO "public.movie"
+            OR ANY $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO "com.apple.m4a-audio"
+            OR ANY $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO "public.mpeg-4-audio"
+    ).@count &gt; 0
+).@count &gt; 0</string>
 		</dict>
 		<key>NSExtensionPointIdentifier</key>
 		<string>com.apple.share-services</string>
