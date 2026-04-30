@@ -12,7 +12,6 @@
 import UIKit
 import Social
 import UniformTypeIdentifiers
-import MobileCoreServices
 
 private let APP_GROUP = "group.com.kolasystems.kolasysai"
 private let PENDING_DIR = "pending-uploads"
@@ -115,7 +114,7 @@ class ShareViewController: UIViewController {
             return
         }
 
-        let types = [UTType.audio.identifier, UTType.movie.identifier, "com.apple.m4a-audio", UTType.data.identifier]
+        let types = ["public.audio", "com.apple.m4a-audio", "public.mpeg-4-audio", "public.movie", "public.data"]
         for typeId in types {
             if provider.hasItemConformingToTypeIdentifier(typeId) {
                 provider.loadFileRepresentation(forTypeIdentifier: typeId) { [weak self] url, error in
