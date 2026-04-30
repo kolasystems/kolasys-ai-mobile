@@ -101,8 +101,6 @@ export default function SettingsScreen({ navigation }: { navigation: NativeStack
   useEffect(() => { getTokenRef.current = getToken; });
 
   const [deleteAudio, setDeleteAudio] = useState<boolean>(false);
-  const [botName, setBotName] = useState<string>('');
-  const [botNameDraft, setBotNameDraft] = useState<string>('');
   const [orgSettingsLoaded, setOrgSettingsLoaded] = useState(false);
 
   useEffect(() => {
@@ -110,14 +108,13 @@ export default function SettingsScreen({ navigation }: { navigation: NativeStack
     (async () => {
       try {
         const token = await getTokenRef.current();
-        const data = await trpcGet<{
-          deleteAudioAfterTranscription?: boolean;
-          botDisplayName?: string;
-        }>('settings.getOrgSettings', {}, token);
+        const data = await trpcGet<{ deleteAudioAfterTranscription?: boolean }>(
+          'settings.getOrgSettings',
+          {},
+          token,
+        );
         if (cancelled) return;
         setDeleteAudio(!!data?.deleteAudioAfterTranscription);
-        setBotName(data?.botDisplayName ?? '');
-        setBotNameDraft(data?.botDisplayName ?? '');
         setOrgSettingsLoaded(true);
       } catch {
         // procedure may not be deployed — leave defaults
@@ -126,25 +123,16 @@ export default function SettingsScreen({ navigation }: { navigation: NativeStack
     return () => { cancelled = true; };
   }, []);
 
-  const persistOrgSettings = async (patch: { deleteAudioAfterTranscription?: boolean; botDisplayName?: string }) => {
-    try {
-      const token = await getTokenRef.current();
-      await trpcPost('settings.updateOrgSettings', patch, token);
-    } catch (err) {
-      Alert.alert('Save failed', err instanceof Error ? err.message : 'Could not update settings.');
-    }
-  };
-
   const handleToggleDeleteAudio = (next: boolean) => {
     setDeleteAudio(next);
-    void persistOrgSettings({ deleteAudioAfterTranscription: next });
-  };
-
-  const handleBotNameBlur = () => {
-    const trimmed = botNameDraft.trim();
-    if (trimmed === botName) return;
-    setBotName(trimmed);
-    void persistOrgSettings({ botDisplayName: trimmed });
+    (async () => {
+      try {
+        const token = await getTokenRef.current();
+        await trpcPost('settings.updateOrgSettings', { deleteAudioAfterTranscription: next }, token);
+      } catch (err) {
+        Alert.alert('Save failed', err instanceof Error ? err.message : 'Could not update settings.');
+      }
+    })();
   };
 
   return (
@@ -198,7 +186,7 @@ export default function SettingsScreen({ navigation }: { navigation: NativeStack
           icon="card-outline"
           label="Billing"
           value="Plan & subscription"
-          onPress={() => (navigation as any).navigate('Billing')}
+          onPress={() => navigation.navigate('Billing')}
           colors={colors}
         />
       </View>
@@ -228,14 +216,18 @@ export default function SettingsScreen({ navigation }: { navigation: NativeStack
               colors={colors}
               rightSlot={
                 <TextInput
-                  value={botNameDraft}
-                  onChangeText={setBotNameDraft}
-                  onBlur={handleBotNameBlur}
-                  placeholder="Kolasys Bot"
+                  value=""
+                  editable={false}
+                  placeholder="Coming soon — bot not yet active"
                   placeholderTextColor={colors.textMuted}
-                  returnKeyType="done"
-                  onSubmitEditing={handleBotNameBlur}
-                  style={[styles.botInput, { color: colors.textPrimary, borderColor: colors.border }]}
+                  style={[
+                    styles.botInput,
+                    {
+                      color: colors.textMuted,
+                      borderColor: colors.border,
+                      backgroundColor: colors.surfaceMuted,
+                    },
+                  ]}
                 />
               }
             />

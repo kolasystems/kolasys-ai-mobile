@@ -844,7 +844,7 @@ export default function HomeScreen() {
                 : { backgroundColor: '#FEF3C7', borderColor: '#FCD34D' },
             ]}
             activeOpacity={0.85}
-            onPress={() => navigation.navigate('Billing')}
+            onPress={() => (navigation as any).navigate('Settings', { screen: 'Billing' })}
           >
             <Ionicons
               name={trialBanner.tone === 'expired' ? 'alert-circle' : 'time-outline'}

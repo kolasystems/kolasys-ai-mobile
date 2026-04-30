@@ -29,7 +29,6 @@ export type TabParamList = {
   Recordings: undefined;
   AskAI: undefined;
   ActionItems: undefined;
-  Billing: undefined;
   Settings: undefined;
 };
 
@@ -49,6 +48,7 @@ export type SettingsStackParamList = {
   SettingsMain: undefined;
   Contacts: undefined;
   Analytics: undefined;
+  Billing: undefined;
 };
 
 /** Navigation container ref — used by the push-notification response listener
@@ -104,6 +104,11 @@ function SettingsStack() {
         component={AnalyticsScreen}
         options={{ title: 'Analytics' }}
       />
+      <SettingsStackInstance.Screen
+        name="Billing"
+        component={BillingScreen}
+        options={{ title: 'Billing' }}
+      />
     </SettingsStackInstance.Navigator>
   );
 }
@@ -115,7 +120,6 @@ const TAB_ICONS: Record<keyof TabParamList, [string, string]> = {
   Recordings:  ['list',                   'list-outline'],
   AskAI:       ['sparkles',               'sparkles-outline'],
   ActionItems: ['checkmark-circle',       'checkmark-circle-outline'],
-  Billing:     ['card',                   'card-outline'],
   Settings:    ['settings',               'settings-outline'],
 };
 
@@ -147,7 +151,6 @@ function Tabs() {
       <Tab.Screen name="Recordings" component={RecordingsStack} options={{ headerShown: false }} />
       <Tab.Screen name="AskAI" component={AskAIScreen} options={{ headerShown: false, title: 'Ask AI' }} />
       <Tab.Screen name="ActionItems" component={ActionItemsScreen} options={{ headerShown: false, title: 'Tasks' }} />
-      <Tab.Screen name="Billing" component={BillingScreen} options={{ headerShown: false }} />
       <Tab.Screen name="Settings" component={SettingsStack} options={{ headerShown: false }} />
     </Tab.Navigator>
   );
