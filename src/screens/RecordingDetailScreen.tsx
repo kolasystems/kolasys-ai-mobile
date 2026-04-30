@@ -1023,24 +1023,40 @@ function NotesTab({
             <Markdown style={mdStyles}>{summary}</Markdown>
           </View>
 
-          <TouchableOpacity
-            onPress={handleRefinePress}
-            disabled={isRefining}
-            activeOpacity={0.8}
-            style={[
-              notesStyles.refineBtn,
-              { borderColor: colors.border, backgroundColor: colors.surface, opacity: isRefining ? 0.6 : 1 },
-            ]}
-          >
-            {isRefining ? (
-              <ActivityIndicator size="small" color={colors.accent} />
-            ) : (
-              <Text style={[notesStyles.refineEmoji, { color: colors.accent }]}>✨</Text>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <TouchableOpacity
+              onPress={handleRefinePress}
+              disabled={isRefining}
+              activeOpacity={0.8}
+              style={[
+                notesStyles.refineBtn,
+                { borderColor: colors.border, backgroundColor: colors.surface, opacity: isRefining ? 0.6 : 1, flex: 1 },
+              ]}
+            >
+              {isRefining ? (
+                <ActivityIndicator size="small" color={colors.accent} />
+              ) : (
+                <Text style={[notesStyles.refineEmoji, { color: colors.accent }]}>✨</Text>
+              )}
+              <Text style={[notesStyles.refineText, { color: colors.accent }]}>
+                {isRefining ? 'Refining…' : 'Refine Summary'}
+              </Text>
+            </TouchableOpacity>
+
+            {summaryOverride !== null && !isRefining && (
+              <TouchableOpacity
+                onPress={() => setSummaryOverride(null)}
+                activeOpacity={0.8}
+                style={[
+                  notesStyles.refineBtn,
+                  { borderColor: colors.border, backgroundColor: colors.surface, paddingHorizontal: 16 },
+                ]}
+              >
+                <Ionicons name="arrow-undo-outline" size={16} color={colors.textSecondary} />
+                <Text style={[notesStyles.refineText, { color: colors.textSecondary }]}>Undo</Text>
+              </TouchableOpacity>
             )}
-            <Text style={[notesStyles.refineText, { color: colors.accent }]}>
-              {isRefining ? 'Refining…' : 'Refine Summary'}
-            </Text>
-          </TouchableOpacity>
+          </View>
         </View>
       )}
 

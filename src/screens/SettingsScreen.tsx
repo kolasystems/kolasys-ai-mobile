@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   Alert,
   Linking,
   Switch,
+  TextInput,
 } from 'react-native';
 import { useUser, useAuth } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,6 +17,7 @@ import Constants from 'expo-constants';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { SettingsStackParamList } from '../navigation/AppNavigator';
 import { useTheme, type ThemeColors } from '../lib/theme';
+import { trpcGet, trpcPost } from '../lib/api';
 
 function Row({
   icon,
@@ -72,7 +74,7 @@ function Row({
 export default function SettingsScreen({ navigation }: { navigation: NativeStackNavigationProp<SettingsStackParamList, 'SettingsMain'> }) {
   const insets = useSafeAreaInsets();
   const { user } = useUser();
-  const { signOut } = useAuth();
+  const { signOut, getToken } = useAuth();
   const { colors, mode, isDark, toggleDark } = useTheme();
 
   const fullName =
@@ -92,6 +94,57 @@ export default function SettingsScreen({ navigation }: { navigation: NativeStack
       { text: 'Cancel', style: 'cancel' },
       { text: 'Sign Out', style: 'destructive', onPress: () => void signOut() },
     ]);
+  };
+
+  // ── Org settings (audio retention + bot name) ───────────────────────────────
+  const getTokenRef = useRef(getToken);
+  useEffect(() => { getTokenRef.current = getToken; });
+
+  const [deleteAudio, setDeleteAudio] = useState<boolean>(false);
+  const [botName, setBotName] = useState<string>('');
+  const [botNameDraft, setBotNameDraft] = useState<string>('');
+  const [orgSettingsLoaded, setOrgSettingsLoaded] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const token = await getTokenRef.current();
+        const data = await trpcGet<{
+          deleteAudioAfterTranscription?: boolean;
+          botDisplayName?: string;
+        }>('settings.getOrgSettings', {}, token);
+        if (cancelled) return;
+        setDeleteAudio(!!data?.deleteAudioAfterTranscription);
+        setBotName(data?.botDisplayName ?? '');
+        setBotNameDraft(data?.botDisplayName ?? '');
+        setOrgSettingsLoaded(true);
+      } catch {
+        // procedure may not be deployed — leave defaults
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const persistOrgSettings = async (patch: { deleteAudioAfterTranscription?: boolean; botDisplayName?: string }) => {
+    try {
+      const token = await getTokenRef.current();
+      await trpcPost('settings.updateOrgSettings', patch, token);
+    } catch (err) {
+      Alert.alert('Save failed', err instanceof Error ? err.message : 'Could not update settings.');
+    }
+  };
+
+  const handleToggleDeleteAudio = (next: boolean) => {
+    setDeleteAudio(next);
+    void persistOrgSettings({ deleteAudioAfterTranscription: next });
+  };
+
+  const handleBotNameBlur = () => {
+    const trimmed = botNameDraft.trim();
+    if (trimmed === botName) return;
+    setBotName(trimmed);
+    void persistOrgSettings({ botDisplayName: trimmed });
   };
 
   return (
@@ -149,6 +202,46 @@ export default function SettingsScreen({ navigation }: { navigation: NativeStack
           colors={colors}
         />
       </View>
+
+      {/* Organization */}
+      {orgSettingsLoaded && (
+        <>
+          <Text style={[styles.sectionHeader, { color: colors.textMuted }]}>ORGANIZATION</Text>
+          <View style={[styles.section, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+            <Row
+              icon="trash-outline"
+              label="Auto-delete audio after transcription"
+              colors={colors}
+              rightSlot={
+                <Switch
+                  value={deleteAudio}
+                  onValueChange={handleToggleDeleteAudio}
+                  trackColor={{ false: colors.border, true: colors.accent }}
+                  thumbColor="#ffffff"
+                  ios_backgroundColor={colors.border}
+                />
+              }
+            />
+            <Row
+              icon="person-circle-outline"
+              label="Bot display name"
+              colors={colors}
+              rightSlot={
+                <TextInput
+                  value={botNameDraft}
+                  onChangeText={setBotNameDraft}
+                  onBlur={handleBotNameBlur}
+                  placeholder="Kolasys Bot"
+                  placeholderTextColor={colors.textMuted}
+                  returnKeyType="done"
+                  onSubmitEditing={handleBotNameBlur}
+                  style={[styles.botInput, { color: colors.textPrimary, borderColor: colors.border }]}
+                />
+              }
+            />
+          </View>
+        </>
+      )}
 
       {/* Appearance */}
       <Text style={[styles.sectionHeader, { color: colors.textMuted }]}>APPEARANCE</Text>
@@ -266,4 +359,14 @@ const styles = StyleSheet.create({
   rowIcon: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   rowLabel: { flex: 1, fontSize: 15 },
   rowValue: { fontSize: 13 },
+  botInput: {
+    minWidth: 120,
+    maxWidth: 180,
+    fontSize: 14,
+    textAlign: 'right',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 6,
+  },
 });

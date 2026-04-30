@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -731,6 +731,47 @@ export default function HomeScreen() {
   const readyQueue = useReadyStore(s => s.queue);
   const dismissReady = useReadyStore(s => s.dismiss);
 
+  // Subscription / trial banner — silently no-ops if procedure isn't deployed.
+  const [subscription, setSubscription] = useState<{
+    plan: string;
+    status: string;
+    trialEndsAt: string | null;
+  } | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const token = await getTokenRef.current();
+        const data = await trpcGet<{ plan: string; status: string; trialEndsAt: string | null }>(
+          'billing.getSubscription',
+          {},
+          token,
+        );
+        if (!cancelled) setSubscription(data);
+      } catch {
+        // procedure may not be deployed — banner just stays hidden
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const trialBanner = useMemo(() => {
+    if (!subscription || subscription.plan !== 'FREE') return null;
+    if (!subscription.trialEndsAt) return null;
+    const ms = new Date(subscription.trialEndsAt).getTime() - Date.now();
+    const daysLeft = Math.ceil(ms / 86_400_000);
+    if (ms <= 0) {
+      return { tone: 'expired' as const, message: 'Your trial has ended — Upgrade to continue' };
+    }
+    if (daysLeft <= 7) {
+      return {
+        tone: 'warning' as const,
+        message: `\u26A0\uFE0F Trial ends in ${daysLeft} ${daysLeft === 1 ? 'day' : 'days'} \u2014 Upgrade to keep access`,
+      };
+    }
+    return null;
+  }, [subscription]);
+
   const handleCardPress = useCallback((id: string) => {
     (navigation as any).navigate('Recordings', {
       screen: 'RecordingDetail',
@@ -793,6 +834,44 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
         </LinearGradient>
+
+        {trialBanner && (
+          <TouchableOpacity
+            style={[
+              styles.trialBanner,
+              trialBanner.tone === 'expired'
+                ? { backgroundColor: '#FEE2E2', borderColor: '#FCA5A5' }
+                : { backgroundColor: '#FEF3C7', borderColor: '#FCD34D' },
+            ]}
+            activeOpacity={0.85}
+            onPress={() => navigation.navigate('Billing')}
+          >
+            <Ionicons
+              name={trialBanner.tone === 'expired' ? 'alert-circle' : 'time-outline'}
+              size={20}
+              color={trialBanner.tone === 'expired' ? '#7F1D1D' : '#92400E'}
+            />
+            <Text
+              style={[
+                styles.trialBannerText,
+                { color: trialBanner.tone === 'expired' ? '#7F1D1D' : '#92400E' },
+              ]}
+              numberOfLines={2}
+            >
+              {trialBanner.message}
+            </Text>
+            <View
+              style={[
+                styles.trialBannerCta,
+                {
+                  backgroundColor: trialBanner.tone === 'expired' ? '#7F1D1D' : '#92400E',
+                },
+              ]}
+            >
+              <Text style={styles.trialBannerCtaText}>Upgrade</Text>
+            </View>
+          </TouchableOpacity>
+        )}
 
         <View style={styles.content}>
           {/* Quick-access cards — Knowledge & Templates */}
@@ -957,6 +1036,20 @@ const styles = StyleSheet.create({
   readyTitle: { fontSize: 14, fontWeight: '700', color: '#ffffff' },
   readySub: { fontSize: 12, color: '#ffffffcc', marginTop: 1 },
   readyClose: { padding: 4 },
+  trialBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginHorizontal: 16,
+    marginTop: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  trialBannerText: { flex: 1, fontSize: 13, fontWeight: '600', lineHeight: 18 },
+  trialBannerCta: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
+  trialBannerCtaText: { color: '#ffffff', fontSize: 12, fontWeight: '700' },
   quickRow: { flexDirection: 'row', gap: 10 },
   quickCard: {
     flex: 1,
